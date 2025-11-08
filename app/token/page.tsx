@@ -7,6 +7,7 @@ import {Input} from "@/components/ui/input";
 import {AlertCircle, ExternalLink, Key, Loader2} from "lucide-react";
 import {useRouter} from "next/navigation";
 import Link from "next/link";
+import {ThemeSelector} from "@/components/ThemeSelector";
 
 export default function TokenPage() {
   const [token, setToken] = useState("");
@@ -159,6 +160,7 @@ export default function TokenPage() {
           </div>
         </div>
       </motion.div>
+      <ThemeSelector />
     </div>
   );
 }

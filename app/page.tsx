@@ -5,6 +5,7 @@ import {Button} from "@/components/ui/button";
 import {Github} from "lucide-react";
 import Link from "next/link";
 import {useEffect, useState} from "react";
+import {ThemeSelector} from "@/components/ThemeSelector";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -14,17 +15,18 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen retro-bg relative overflow-hidden">
-      {/* CRT Scanline Effect */}
-      <div className="absolute inset-0 pointer-events-none">
+    <div className="min-h-screen retro-bg relative overflow-hidden theme-bg">
+      {/* CRT Scanline Effect - Only for Retro Theme */}
+      <div className="absolute inset-0 pointer-events-none scanline-effect">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-transparent h-full animate-scanline" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,transparent_0%,rgba(0,0,0,0.4)_100%)]" />
       </div>
       
-      {/* Retro Animated Background Elements */}
+      {/* Theme-aware Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
-          className="absolute top-20 left-20 w-72 h-72 border-4 border-[#a855f7]/10"
+          className="absolute top-20 left-20 w-72 h-72 border-4 theme-border opacity-10"
+          style={{ borderColor: 'var(--theme-text-primary)' }}
           animate={{
             x: [0, 100, 0],
             y: [0, 50, 0],
@@ -37,7 +39,8 @@ export default function Home() {
           }}
         />
         <motion.div
-          className="absolute bottom-20 right-20 w-96 h-96 border-4 border-[#3b82f6]/10"
+          className="absolute bottom-20 right-20 w-96 h-96 border-4 theme-border opacity-10"
+          style={{ borderColor: 'var(--theme-text-secondary)' }}
           animate={{
             x: [0, -100, 0],
             y: [0, -50, 0],
@@ -65,16 +68,16 @@ export default function Home() {
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
             className="mb-8"
           >
-            <div className="inline-flex items-center justify-center w-24 h-24 retro-border bg-black/70 mb-6">
-              <Github className="w-12 h-12 text-[#a855f7]" />
+            <div className="inline-flex items-center justify-center w-24 h-24 retro-border theme-card-bg mb-6">
+              <Github className="w-12 h-12 theme-text-primary" />
             </div>
           </motion.div>
 
-          <h1 className="pixel-text text-4xl md:text-6xl font-bold mb-6 text-[#a855f7]">
+          <h1 className="pixel-text text-4xl md:text-6xl font-bold mb-6 theme-text-primary">
             GITHUB UNWRAPPED 2025
           </h1>
 
-          <p className="retro-text text-xl md:text-2xl text-[#60a5fa] mb-12 max-w-2xl mx-auto">
+          <p className="retro-text text-xl md:text-2xl theme-text-secondary mb-12 max-w-2xl mx-auto">
             DISCOVER YOUR YEAR IN CODE. SEE YOUR COMMITS, TOP REPOSITORIES, AND
             UNLOCK YOUR DEVELOPER LEVEL.
           </p>
@@ -92,40 +95,40 @@ export default function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={mounted ? { opacity: 1, y: 0 } : {}}
                 transition={{ delay: 0.5 }}
-                className="retro-border bg-black/70 p-6 hover:border-[#c084fc] transition-colors flex flex-col h-full"
+                className="retro-border theme-card-bg p-6 theme-hover transition-all flex flex-col h-full"
               >
                 <div className="text-center mb-4 flex-grow">
-                  <div className="inline-flex items-center justify-center w-16 h-16 retro-border bg-black/50 mb-3">
-                    <Github className="w-8 h-8 text-[#a855f7]" />
+                  <div className="inline-flex items-center justify-center w-16 h-16 retro-border theme-card-bg mb-3">
+                    <Github className="w-8 h-8 theme-text-primary" />
                   </div>
-                  <h3 className="pixel-text text-sm font-bold mb-2 text-[#a855f7]">SIGN IN VIA GITHUB</h3>
-                  <p className="retro-text text-xs text-[#60a5fa] mb-4">
+                  <h3 className="pixel-text text-sm font-bold mb-2 theme-text-primary">SIGN IN VIA GITHUB</h3>
+                  <p className="retro-text text-xs theme-text-secondary mb-4">
                     FULL ACCESS WITH OAUTH AUTHENTICATION. VIEW ALL YOUR PRIVATE AND PUBLIC REPOSITORIES.
                   </p>
                 </div>
                 <Link href="/api/auth/github" className="block mt-auto">
                   <Button
                     size="lg"
-                    className="w-full retro-border bg-black text-[#a855f7] hover:bg-[#7c3aed] hover:text-white pixel-text text-[10px] whitespace-normal py-3 px-4"
+                    className="w-full retro-border theme-card-bg theme-text-primary hover:opacity-80 pixel-text text-[10px] whitespace-normal py-3 px-4"
                   >
                     SIGN IN WITH GITHUB
                   </Button>
                 </Link>
               </motion.div>
 
-              {/* Option 2: Public Data - Retro */}
+              {/* Option 2: Public Data */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={mounted ? { opacity: 1, y: 0 } : {}}
                 transition={{ delay: 0.6 }}
-                className="retro-border-amber bg-black/70 p-6 hover:border-[#ffcc00] transition-colors flex flex-col h-full"
+                className="retro-border theme-card-bg p-6 theme-hover transition-all flex flex-col h-full"
               >
                 <div className="text-center mb-4 flex-grow">
-                  <div className="inline-flex items-center justify-center w-16 h-16 retro-border-amber bg-black/50 mb-3">
+                  <div className="inline-flex items-center justify-center w-16 h-16 retro-border theme-card-bg mb-3">
                     <span className="text-3xl">🔍</span>
                   </div>
-                  <h3 className="pixel-text text-sm font-bold mb-2 text-[#fbbf24]">RETRIEVE PUBLIC DATA</h3>
-                  <p className="retro-text text-xs text-[#fcd34d] mb-4">
+                  <h3 className="pixel-text text-sm font-bold mb-2 theme-text-accent">RETRIEVE PUBLIC DATA</h3>
+                  <p className="retro-text text-xs theme-text-secondary mb-4">
                     ENTER A GITHUB USERNAME TO VIEW PUBLIC REPOSITORY STATISTICS. NO AUTHENTICATION REQUIRED.
                   </p>
                 </div>
@@ -133,26 +136,26 @@ export default function Home() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="w-full retro-border-amber bg-black text-[#fbbf24] hover:bg-[#fbbf24] hover:text-black pixel-text text-[10px] whitespace-normal py-3 px-4"
+                    className="w-full retro-border theme-card-bg theme-text-accent hover:opacity-80 pixel-text text-[10px] whitespace-normal py-3 px-4"
                   >
                     VIEW PUBLIC STATS
                   </Button>
                 </Link>
               </motion.div>
 
-              {/* Option 3: Token - Retro */}
+              {/* Option 3: Token */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={mounted ? { opacity: 1, y: 0 } : {}}
                 transition={{ delay: 0.7 }}
-                className="retro-border bg-black/70 p-6 hover:border-[#c084fc] transition-colors flex flex-col h-full"
+                className="retro-border theme-card-bg p-6 theme-hover transition-all flex flex-col h-full"
               >
                 <div className="text-center mb-4 flex-grow">
-                  <div className="inline-flex items-center justify-center w-16 h-16 retro-border bg-black/50 mb-3">
+                  <div className="inline-flex items-center justify-center w-16 h-16 retro-border theme-card-bg mb-3">
                     <span className="text-3xl">🔑</span>
                   </div>
-                  <h3 className="pixel-text text-sm font-bold mb-2 text-[#3b82f6]">USE GITHUB TOKEN</h3>
-                  <p className="retro-text text-xs text-[#60a5fa] mb-4">
+                  <h3 className="pixel-text text-sm font-bold mb-2 theme-text-primary">USE GITHUB TOKEN</h3>
+                  <p className="retro-text text-xs theme-text-secondary mb-4">
                     ENTER YOUR PERSONAL ACCESS TOKEN FOR FULL ACCESS TO ALL YOUR REPOSITORIES AND PRIVATE DATA.
                   </p>
                 </div>
@@ -160,7 +163,7 @@ export default function Home() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="w-full retro-border-blue bg-black text-[#3b82f6] hover:bg-[#2563eb] hover:text-white pixel-text text-[10px] whitespace-normal py-3 px-4"
+                    className="w-full retro-border theme-card-bg theme-text-primary hover:opacity-80 pixel-text text-[10px] whitespace-normal py-3 px-4"
                   >
                     USE TOKEN
                   </Button>
@@ -180,7 +183,7 @@ export default function Home() {
               <Button
                 size="lg"
                 variant="ghost"
-                className="retro-border bg-black/50 text-[#a855f7] hover:bg-[#7c3aed] hover:text-white pixel-text text-xs"
+                className="retro-border theme-card-bg theme-text-primary hover:opacity-80 pixel-text text-xs"
               >
                 VIEW DEMO
               </Button>
@@ -213,15 +216,16 @@ export default function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={mounted ? { opacity: 1, y: 0 } : {}}
                 transition={{ delay: 0.7 + index * 0.1 }}
-                className="p-6 retro-border bg-black/70"
+                className="p-6 retro-border theme-card-bg theme-hover"
               >
-                <h3 className="pixel-text text-lg font-bold mb-2 text-[#a855f7]">{feature.title}</h3>
-                <p className="retro-text text-[#60a5fa]">{feature.description}</p>
+                <h3 className="pixel-text text-lg font-bold mb-2 theme-text-primary">{feature.title}</h3>
+                <p className="retro-text theme-text-secondary">{feature.description}</p>
               </motion.div>
             ))}
           </motion.div>
         </motion.div>
       </div>
+      <ThemeSelector />
     </div>
   );
 }

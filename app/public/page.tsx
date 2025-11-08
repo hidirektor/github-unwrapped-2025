@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, AlertCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
+import {useState} from "react";
+import {motion} from "framer-motion";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {AlertCircle, Search} from "lucide-react";
+import {useRouter} from "next/navigation";
+import {ThemeSelector} from "@/components/ThemeSelector";
 
 export default function PublicDataPage() {
   const [username, setUsername] = useState("");
@@ -98,6 +99,7 @@ export default function PublicDataPage() {
           </CardContent>
         </Card>
       </motion.div>
+      <ThemeSelector />
     </div>
   );
 }

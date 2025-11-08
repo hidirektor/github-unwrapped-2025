@@ -41,9 +41,9 @@ export function PixelLoader({ message = "LOADING DATA..." }: PixelLoaderProps) {
   }, [terminalMessages.length]);
 
   return (
-    <div className="min-h-screen retro-bg flex items-center justify-center relative overflow-hidden">
-      {/* CRT Scanline Effect */}
-      <div className="absolute inset-0 pointer-events-none">
+    <div className="min-h-screen retro-bg theme-bg flex items-center justify-center relative overflow-hidden">
+      {/* CRT Scanline Effect - Only for Retro Theme */}
+      <div className="absolute inset-0 pointer-events-none scanline-effect">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/30 to-transparent h-full animate-scanline" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,transparent_0%,rgba(0,0,0,0.5)_100%)]" />
         {/* CRT Vignette */}

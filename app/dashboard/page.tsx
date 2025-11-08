@@ -11,6 +11,7 @@ import {LanguageChart} from "@/components/LanguageChart";
 import {ContributionsGraph} from "@/components/ContributionsGraph";
 import {LinkedInShare} from "@/components/LinkedInShare";
 import {PixelLoader} from "@/components/PixelLoader";
+import {ThemeSelector} from "@/components/ThemeSelector";
 import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import {AlertCircle, Building2, GitCommit, GitPullRequest, Link as LinkIcon, MapPin, Star, Users,} from "lucide-react";
 import {Button} from "@/components/ui/button";
@@ -139,9 +140,9 @@ function DashboardContent() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <div className="min-h-screen retro-bg text-[#c084fc] relative overflow-hidden">
-      {/* CRT Scanline Effect */}
-      <div className="absolute inset-0 pointer-events-none">
+    <div className="min-h-screen retro-bg theme-bg theme-text-primary relative overflow-hidden">
+      {/* CRT Scanline Effect - Only for Retro Theme */}
+      <div className="absolute inset-0 pointer-events-none scanline-effect">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-transparent h-full animate-scanline" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,transparent_0%,rgba(0,0,0,0.4)_100%)]" />
       </div>
@@ -153,25 +154,25 @@ function DashboardContent() {
           className="mb-6"
         >
           <div className="flex flex-col md:flex-row gap-6">
-            {/* Left: Profile Picture - Retro Border */}
+            {/* Left: Profile Picture */}
             <div className="flex-shrink-0">
-              <div className="retro-border p-2 bg-black/50 h-80 flex items-center justify-center">
-                <Avatar className="h-full w-64 border-4 border-[#a855f7] rounded-none">
+              <div className="retro-border p-2 theme-card-bg h-80 flex items-center justify-center">
+                <Avatar className="h-full w-64 border-4 theme-border" style={{ borderRadius: 'var(--theme-border-radius)' }}>
                   <AvatarImage src={user.avatar_url} alt={user.login} />
-                  <AvatarFallback className="text-4xl bg-black text-[#c084fc]">
+                  <AvatarFallback className="text-4xl theme-bg-secondary theme-text-accent">
                     {user.login[0].toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               </div>
             </div>
 
-            {/* Right: User Info - Retro Terminal */}
-            <div className="flex-1 retro-border bg-black/70 p-6 flex flex-col h-80 overflow-y-auto relative">
+            {/* Right: User Info */}
+            <div className="flex-1 retro-border theme-card-bg p-6 flex flex-col h-80 overflow-y-auto relative">
               <div className="mb-4">
-                <h1 className="pixel-text text-2xl md:text-3xl font-bold mb-2 text-[#a855f7]">{user.name || user.login}</h1>
-                <p className="retro-text text-xl text-[#60a5fa] mb-4">@{user.login}</p>
+                <h1 className="pixel-text text-2xl md:text-3xl font-bold mb-2 theme-text-primary">{user.name || user.login}</h1>
+                <p className="retro-text text-xl theme-text-secondary mb-4">@{user.login}</p>
                 {dataType === "public" && (
-                  <span className="inline-block px-3 py-1 text-xs retro-border-amber bg-black/50 text-[#fbbf24] mb-2">
+                  <span className="inline-block px-3 py-1 text-xs retro-border theme-card-bg theme-text-accent mb-2">
                     PUBLIC DATA ONLY
                   </span>
                 )}
@@ -179,25 +180,25 @@ function DashboardContent() {
               
               {/* Badge in bottom right corner */}
               {dataType === "token" && (
-                <span className="absolute bottom-6 right-6 px-3 py-1 text-xs retro-border-blue bg-black/50 text-[#60a5fa]">
+                <span className="absolute bottom-6 right-6 px-3 py-1 text-xs retro-border theme-card-bg theme-text-secondary">
                   TOKEN AUTHENTICATED
                 </span>
               )}
 
               {user.bio && (
-                <p className="retro-text text-[#60a5fa] mb-4">{user.bio}</p>
+                <p className="retro-text theme-text-secondary mb-4">{user.bio}</p>
               )}
 
-              <div className="flex flex-wrap gap-4 text-sm retro-text text-[#c084fc] mb-4">
+              <div className="flex flex-wrap gap-4 text-sm retro-text theme-text-accent mb-4">
                 {user.location && (
                   <div className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4 text-[#a855f7]" />
+                    <MapPin className="h-4 w-4 theme-text-primary" />
                     <span>{user.location}</span>
                   </div>
                 )}
                 {user.company && (
                   <div className="flex items-center gap-1">
-                    <Building2 className="h-4 w-4 text-[#a855f7]" />
+                    <Building2 className="h-4 w-4 theme-text-primary" />
                     <span>{user.company}</span>
                   </div>
                 )}
@@ -206,14 +207,14 @@ function DashboardContent() {
                     href={user.blog}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 hover:text-[#60a5fa] transition-colors"
+                    className="flex items-center gap-1 theme-text-secondary hover:theme-text-primary transition-colors"
                   >
-                    <LinkIcon className="h-4 w-4" />
+                    <LinkIcon className="h-4 w-4 theme-text-primary" />
                     <span>{user.blog.replace(/^https?:\/\//, '')}</span>
                   </a>
                 )}
                 <div className="flex items-center gap-1">
-                  <Users className="h-4 w-4 text-[#a855f7]" />
+                  <Users className="h-4 w-4 theme-text-primary" />
                   <span>{user.followers} FOLLOWERS</span>
                   <span className="mx-1">·</span>
                   <span>{user.following} FOLLOWING</span>
@@ -242,43 +243,43 @@ function DashboardContent() {
           transition={{ delay: 0.1 }}
           className="mb-6"
         >
-          <div className="retro-border bg-black/70 p-6">
+          <div className="retro-border theme-card-bg p-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left: Stats Grid */}
               <div className="lg:col-span-2 grid grid-cols-2 gap-4">
-                <div className="retro-border bg-black/50 p-4">
+                <div className="retro-border theme-card-bg p-4 theme-hover">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="pixel-text text-xs text-[#c084fc]">TOTAL COMMITS</h3>
-                    <GitCommit className="h-4 w-4 text-[#a855f7]" />
+                    <h3 className="pixel-text text-xs theme-text-accent">TOTAL COMMITS</h3>
+                    <GitCommit className="h-4 w-4 theme-text-primary" />
                   </div>
-                  <div className="pixel-text text-2xl font-bold text-[#a855f7]">
+                  <div className="pixel-text text-2xl font-bold theme-text-primary">
                     {stats.totalCommits.toLocaleString()}
                   </div>
                 </div>
-                <div className="retro-border bg-black/50 p-4">
+                <div className="retro-border theme-card-bg p-4 theme-hover">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="pixel-text text-xs text-[#c084fc]">PULL REQUESTS</h3>
-                    <GitPullRequest className="h-4 w-4 text-[#a855f7]" />
+                    <h3 className="pixel-text text-xs theme-text-accent">PULL REQUESTS</h3>
+                    <GitPullRequest className="h-4 w-4 theme-text-primary" />
                   </div>
-                  <div className="pixel-text text-2xl font-bold text-[#a855f7]">
+                  <div className="pixel-text text-2xl font-bold theme-text-primary">
                     {stats.totalPRs.toLocaleString()}
                   </div>
                 </div>
-                <div className="retro-border bg-black/50 p-4">
+                <div className="retro-border theme-card-bg p-4 theme-hover">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="pixel-text text-xs text-[#c084fc]">ISSUES</h3>
-                    <AlertCircle className="h-4 w-4 text-[#a855f7]" />
+                    <h3 className="pixel-text text-xs theme-text-accent">ISSUES</h3>
+                    <AlertCircle className="h-4 w-4 theme-text-primary" />
                   </div>
-                  <div className="pixel-text text-2xl font-bold text-[#a855f7]">
+                  <div className="pixel-text text-2xl font-bold theme-text-primary">
                     {stats.totalIssues.toLocaleString()}
                   </div>
                 </div>
-                <div className="retro-border bg-black/50 p-4">
+                <div className="retro-border theme-card-bg p-4 theme-hover">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="pixel-text text-xs text-[#c084fc]">STARS RECEIVED</h3>
-                    <Star className="h-4 w-4 text-[#a855f7]" />
+                    <h3 className="pixel-text text-xs theme-text-accent">STARS RECEIVED</h3>
+                    <Star className="h-4 w-4 theme-text-primary" />
                   </div>
-                  <div className="pixel-text text-2xl font-bold text-[#a855f7]">
+                  <div className="pixel-text text-2xl font-bold theme-text-primary">
                     {stats.totalStars.toLocaleString()}
                   </div>
                 </div>
@@ -286,9 +287,9 @@ function DashboardContent() {
 
               {/* Right: Level Badge */}
               <div className="lg:col-span-1">
-                <div className={`retro-border bg-gradient-to-br ${level.gradient} p-6 h-full flex flex-col items-center justify-center relative overflow-hidden`}>
-                  {/* Subtle glowing border effect */}
-                  <div className={`absolute inset-0 opacity-20 ${level.glowClass}`} />
+                <div className={`retro-border bg-gradient-to-br ${level.gradient} p-6 h-full flex flex-col items-center justify-center relative overflow-hidden theme-card`}>
+                  {/* Subtle glowing border effect - only for retro */}
+                  <div className={`absolute inset-0 opacity-20 ${level.glowClass} scanline-effect`} />
                   
                   <div className="relative z-10 text-center">
                     <motion.div
@@ -305,17 +306,17 @@ function DashboardContent() {
                       {level.emoji}
                     </motion.div>
 
-                    <h2 className="pixel-text text-xl font-bold mb-2 text-[#a855f7]">{level.name}</h2>
-                    <p className="retro-text text-xs text-[#60a5fa] mb-3">
+                    <h2 className="pixel-text text-xl font-bold mb-2 theme-text-primary">{level.name}</h2>
+                    <p className="retro-text text-xs theme-text-secondary mb-3">
                       {level.description}
                     </p>
-                    <p className="retro-text text-sm font-semibold text-[#c084fc] mb-4">
+                    <p className="retro-text text-sm font-semibold theme-text-accent mb-4">
                       {getMotivationalMessage(level)}
                     </p>
 
                     <div className="mt-4 text-center">
-                      <span className="pixel-text text-3xl font-bold text-[#a855f7]">{stats.totalCommits.toLocaleString()}</span>
-                      <span className="retro-text text-xs text-[#60a5fa] ml-2">COMMITS</span>
+                      <span className="pixel-text text-3xl font-bold theme-text-primary">{stats.totalCommits.toLocaleString()}</span>
+                      <span className="retro-text text-xs theme-text-secondary ml-2">COMMITS</span>
                     </div>
                   </div>
                 </div>
@@ -350,9 +351,10 @@ function DashboardContent() {
           transition={{ delay: 0.8 }}
           className="mt-12 text-center retro-text text-[#c084fc]"
         >
-          <p className="retro-border bg-black/70 p-4 inline-block">YOUR GITHUB YEAR IN CODE • LAST 365 DAYS</p>
+          <p className="retro-border theme-card-bg p-4 inline-block theme-text-accent">YOUR GITHUB YEAR IN CODE • LAST 365 DAYS</p>
         </motion.div>
       </div>
+      <ThemeSelector />
     </div>
   );
 }
