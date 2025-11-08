@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { GitHubUser, GitHubStats } from "@/lib/github";
 import { getLevelFromCommits } from "@/lib/leaderboard";
@@ -23,22 +23,92 @@ import { Button } from "@/components/ui/button";
 
 function DashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<GitHubUser | null>(null);
   const [stats, setStats] = useState<GitHubStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dataType, setDataType] = useState<"oauth" | "public" | "token">("oauth");
 
   useEffect(() => {
-    fetchStats();
-  }, []);
+    const type = searchParams.get("type");
+    const username = searchParams.get("username");
+    
+    if (type === "public" && username) {
+      setDataType("public");
+      fetchPublicStats(username);
+    } else if (type === "token") {
+      setDataType("token");
+      fetchTokenStats();
+    } else {
+      setDataType("oauth");
+      fetchOAuthStats();
+    }
+  }, [searchParams]);
 
-  const fetchStats = async () => {
+  const fetchOAuthStats = async () => {
     try {
       setLoading(true);
       const response = await fetch("/api/github/stats");
       
       if (response.status === 401) {
         router.push("/");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch stats");
+      }
+
+      const data = await response.json();
+      setUser(data.user);
+      setStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPublicStats = async (username: string) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/github/public-stats?username=${encodeURIComponent(username)}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to fetch public stats");
+      }
+
+      const data = await response.json();
+      setUser(data.user);
+      setStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTokenStats = async () => {
+    try {
+      setLoading(true);
+      const token = sessionStorage.getItem("github_token");
+      
+      if (!token) {
+        router.push("/token");
+        return;
+      }
+
+      const response = await fetch("/api/github/stats?type=token", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      if (response.status === 401) {
+        sessionStorage.removeItem("github_token");
+        router.push("/token");
         return;
       }
 
@@ -95,12 +165,22 @@ function DashboardContent() {
               <div>
                 <h1 className="text-3xl font-bold">{user.name || user.login}</h1>
                 <p className="text-muted-foreground">@{user.login}</p>
+                {dataType === "public" && (
+                  <p className="text-xs text-blue-400 mt-1">Public Data Only</p>
+                )}
+                {dataType === "token" && (
+                  <p className="text-xs text-green-400 mt-1">Token Authenticated</p>
+                )}
               </div>
             </div>
             <LinkedInShare
               username={user.login}
               commits={stats.totalCommits}
               level={level.name}
+              levelEmoji={level.emoji}
+              stars={stats.totalStars}
+              prs={stats.totalPRs}
+              repos={stats.topRepos.length}
             />
           </div>
         </motion.div>

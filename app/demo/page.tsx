@@ -137,6 +137,10 @@ export default function DemoPage() {
               username={mockUser.login}
               commits={mockStats.totalCommits}
               level={level.name}
+              levelEmoji={level.emoji}
+              stars={mockStats.totalStars}
+              prs={mockStats.totalPRs}
+              repos={mockStats.topRepos.length}
             />
           </div>
         </motion.div>

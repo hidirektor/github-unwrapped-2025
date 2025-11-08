@@ -2,7 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchGitHubStats, fetchGitHubUser } from "@/lib/github";
 
 export async function GET(request: NextRequest) {
-  const token = request.cookies.get("github_token")?.value;
+  // Try to get token from cookie (OAuth) first
+  let token = request.cookies.get("github_token")?.value;
+  
+  // If no cookie, try Authorization header (for token-based auth)
+  if (!token) {
+    const authHeader = request.headers.get("authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    }
+  }
 
   if (!token) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });

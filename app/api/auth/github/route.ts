@@ -54,21 +54,21 @@ export async function GET(request: NextRequest) {
         </head>
         <body>
           <div class="container">
-            <h1>⚙️ GitHub OAuth Kurulum Gerekli</h1>
-            <p>GitHub OAuth entegrasyonu için environment variable'ları ayarlamanız gerekiyor.</p>
+            <h1>⚙️ GitHub OAuth Setup Required</h1>
+            <p>You need to configure environment variables for GitHub OAuth integration.</p>
             
             <div class="step">
-              <h3>1. GitHub OAuth App Oluşturun</h3>
+              <h3>1. Create GitHub OAuth App</h3>
               <p>
-                <a href="https://github.com/settings/developers" target="_blank">GitHub Developer Settings</a> → 
+                Go to <a href="https://github.com/settings/developers" target="_blank">GitHub Developer Settings</a> → 
                 OAuth Apps → New OAuth App
               </p>
               <p><strong>Callback URL:</strong> <code>http://localhost:3000/api/auth/callback</code></p>
             </div>
 
             <div class="step">
-              <h3>2. .env.local Dosyası Oluşturun</h3>
-              <p>Proje kök dizininde <code>.env.local</code> dosyası oluşturun:</p>
+              <h3>2. Create .env.local File</h3>
+              <p>Create a <code>.env.local</code> file in the project root directory:</p>
               <pre style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; overflow-x: auto;">
 GITHUB_CLIENT_ID=your_client_id_here
 GITHUB_CLIENT_SECRET=your_client_secret_here
@@ -76,17 +76,19 @@ GITHUB_REDIRECT_URI=http://localhost:3000/api/auth/callback</pre>
             </div>
 
             <div class="step">
-              <h3>3. Development Server'ı Yeniden Başlatın</h3>
-              <p>Environment variable'ları ekledikten sonra server'ı yeniden başlatın:</p>
+              <h3>3. Restart Development Server</h3>
+              <p>After adding environment variables, restart the server:</p>
               <code>npm run dev</code>
             </div>
 
             <p style="margin-top: 30px;">
-              <a href="/">← Ana Sayfaya Dön</a> | 
-              <a href="/demo">Demo Modunu Görüntüle →</a>
+              <a href="/">← Back to Home</a> | 
+              <a href="/public">View Public Data →</a> | 
+              <a href="/token">Use Token →</a> | 
+              <a href="/demo">View Demo →</a>
             </p>
             <p style="font-size: 0.9em; color: #cbd5e1; margin-top: 20px;">
-              Detaylı kurulum için <code>KURULUM.md</code> dosyasına bakın.
+              For detailed setup instructions, see the <code>README.md</code> file.
             </p>
           </div>
         </body>

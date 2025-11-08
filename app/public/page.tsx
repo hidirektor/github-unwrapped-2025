@@ -5,16 +5,15 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Search, AlertCircle } from "lucide-react";
+import { Search, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function PublicDataPage() {
   const [username, setUsername] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!username.trim()) {
@@ -22,17 +21,10 @@ export default function PublicDataPage() {
       return;
     }
 
-    setLoading(true);
     setError(null);
 
-    try {
-      // Store username in sessionStorage and navigate
-      sessionStorage.setItem("github_username", username.trim());
-      router.push(`/dashboard?username=${encodeURIComponent(username.trim())}&type=public`);
-    } catch (err) {
-      setError("Failed to fetch data");
-      setLoading(false);
-    }
+    // Navigate to dashboard with username and type
+    router.push(`/dashboard?username=${encodeURIComponent(username.trim())}&type=public`);
   };
 
   return (
@@ -65,7 +57,6 @@ export default function PublicDataPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="bg-background/50 border-blue-500/30"
-                  disabled={loading}
                 />
               </div>
 
@@ -83,19 +74,9 @@ export default function PublicDataPage() {
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                disabled={loading}
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <Search className="mr-2 h-4 w-4" />
-                    View Public Stats
-                  </>
-                )}
+                <Search className="mr-2 h-4 w-4" />
+                View Public Stats
               </Button>
 
               <Button
