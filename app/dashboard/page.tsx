@@ -4,9 +4,7 @@ import {Suspense, useEffect, useState} from "react";
 import {useRouter, useSearchParams} from "next/navigation";
 import {motion} from "framer-motion";
 import {GitHubStats, GitHubUser} from "@/lib/github";
-import {getLevelFromCommits} from "@/lib/leaderboard";
-import {LevelBadge} from "@/components/LevelBadge";
-import {StatsCard} from "@/components/StatsCard";
+import {getLevelFromCommits, getMotivationalMessage} from "@/lib/leaderboard";
 import {CommitChart} from "@/components/CommitChart";
 import {TopRepos} from "@/components/TopRepos";
 import {LanguageChart} from "@/components/LanguageChart";
@@ -168,7 +166,7 @@ function DashboardContent() {
             </div>
 
             {/* Right: User Info - Retro Terminal */}
-            <div className="flex-1 retro-border bg-black/70 p-6 flex flex-col h-80 overflow-y-auto">
+            <div className="flex-1 retro-border bg-black/70 p-6 flex flex-col h-80 overflow-y-auto relative">
               <div className="mb-4">
                 <h1 className="pixel-text text-2xl md:text-3xl font-bold mb-2 text-[#a855f7]">{user.name || user.login}</h1>
                 <p className="retro-text text-xl text-[#60a5fa] mb-4">@{user.login}</p>
@@ -177,12 +175,14 @@ function DashboardContent() {
                     PUBLIC DATA ONLY
                   </span>
                 )}
-                {dataType === "token" && (
-                  <span className="inline-block px-3 py-1 text-xs retro-border-blue bg-black/50 text-[#60a5fa] mb-2">
-                    TOKEN AUTHENTICATED
-                  </span>
-                )}
               </div>
+              
+              {/* Badge in bottom right corner */}
+              {dataType === "token" && (
+                <span className="absolute bottom-6 right-6 px-3 py-1 text-xs retro-border-blue bg-black/50 text-[#60a5fa]">
+                  TOKEN AUTHENTICATED
+                </span>
+              )}
 
               {user.bio && (
                 <p className="retro-text text-[#60a5fa] mb-4">{user.bio}</p>
@@ -235,14 +235,93 @@ function DashboardContent() {
           </div>
         </motion.div>
 
-        {/* Level Badge */}
+        {/* Combined Stats and Level Badge - Retro Style */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           className="mb-6"
         >
-          <LevelBadge level={level} commits={stats.totalCommits} />
+          <div className="retro-border bg-black/70 p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left: Stats Grid */}
+              <div className="lg:col-span-2 grid grid-cols-2 gap-4">
+                <div className="retro-border bg-black/50 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="pixel-text text-xs text-[#c084fc]">TOTAL COMMITS</h3>
+                    <GitCommit className="h-4 w-4 text-[#a855f7]" />
+                  </div>
+                  <div className="pixel-text text-2xl font-bold text-[#a855f7]">
+                    {stats.totalCommits.toLocaleString()}
+                  </div>
+                </div>
+                <div className="retro-border bg-black/50 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="pixel-text text-xs text-[#c084fc]">PULL REQUESTS</h3>
+                    <GitPullRequest className="h-4 w-4 text-[#a855f7]" />
+                  </div>
+                  <div className="pixel-text text-2xl font-bold text-[#a855f7]">
+                    {stats.totalPRs.toLocaleString()}
+                  </div>
+                </div>
+                <div className="retro-border bg-black/50 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="pixel-text text-xs text-[#c084fc]">ISSUES</h3>
+                    <AlertCircle className="h-4 w-4 text-[#a855f7]" />
+                  </div>
+                  <div className="pixel-text text-2xl font-bold text-[#a855f7]">
+                    {stats.totalIssues.toLocaleString()}
+                  </div>
+                </div>
+                <div className="retro-border bg-black/50 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="pixel-text text-xs text-[#c084fc]">STARS RECEIVED</h3>
+                    <Star className="h-4 w-4 text-[#a855f7]" />
+                  </div>
+                  <div className="pixel-text text-2xl font-bold text-[#a855f7]">
+                    {stats.totalStars.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Level Badge */}
+              <div className="lg:col-span-1">
+                <div className={`retro-border bg-gradient-to-br ${level.gradient} p-6 h-full flex flex-col items-center justify-center relative overflow-hidden`}>
+                  {/* Subtle glowing border effect */}
+                  <div className={`absolute inset-0 opacity-20 ${level.glowClass}`} />
+                  
+                  <div className="relative z-10 text-center">
+                    <motion.div
+                      initial={{ rotate: -10 }}
+                      animate={{ rotate: [0, -10, 10, -10, 0] }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        repeatDelay: 3,
+                        ease: "easeInOut",
+                      }}
+                      className="text-5xl mb-4"
+                    >
+                      {level.emoji}
+                    </motion.div>
+
+                    <h2 className="pixel-text text-xl font-bold mb-2 text-[#a855f7]">{level.name}</h2>
+                    <p className="retro-text text-xs text-[#60a5fa] mb-3">
+                      {level.description}
+                    </p>
+                    <p className="retro-text text-sm font-semibold text-[#c084fc] mb-4">
+                      {getMotivationalMessage(level)}
+                    </p>
+
+                    <div className="mt-4 text-center">
+                      <span className="pixel-text text-3xl font-bold text-[#a855f7]">{stats.totalCommits.toLocaleString()}</span>
+                      <span className="retro-text text-xs text-[#60a5fa] ml-2">COMMITS</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </motion.div>
 
         {/* Contributions Graph - GitHub Style */}
@@ -254,34 +333,6 @@ function DashboardContent() {
         >
           <ContributionsGraph totalContributions={stats.totalCommits} />
         </motion.div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <StatsCard
-            title="Total Commits"
-            value={stats.totalCommits.toLocaleString()}
-            icon={GitCommit}
-            delay={0.3}
-          />
-          <StatsCard
-            title="Pull Requests"
-            value={stats.totalPRs.toLocaleString()}
-            icon={GitPullRequest}
-            delay={0.4}
-          />
-          <StatsCard
-            title="Issues"
-            value={stats.totalIssues.toLocaleString()}
-            icon={AlertCircle}
-            delay={0.5}
-          />
-          <StatsCard
-            title="Stars Received"
-            value={stats.totalStars.toLocaleString()}
-            icon={Star}
-            delay={0.6}
-          />
-        </div>
 
         {/* Charts and Repos Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
