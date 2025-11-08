@@ -1,7 +1,9 @@
-import { ImageResponse } from 'next/og';
-import { NextRequest } from 'next/server';
+import {ImageResponse} from 'next/og';
+import {NextRequest} from 'next/server';
 
+// Edge runtime is required for ImageResponse in Next.js
 export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,6 +16,11 @@ export async function GET(request: NextRequest) {
     const prs = searchParams.get('prs') || '0';
     const repos = searchParams.get('repos') || '0';
 
+    // Validate parameters
+    if (!username || username === 'GitHub User') {
+      return new Response('Username is required', { status: 400 });
+    }
+
     return new ImageResponse(
       (
         <div
@@ -24,8 +31,7 @@ export async function GET(request: NextRequest) {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#0f172a',
-            backgroundImage: 'linear-gradient(135deg, #1e293b 0%, #7c3aed 100%)',
+            backgroundColor: '#1e293b',
             fontFamily: 'system-ui, -apple-system, sans-serif',
           }}
         >
@@ -190,10 +196,20 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (e: any) {
-    console.log(`${e.message}`);
-    return new Response(`Failed to generate the image`, {
-      status: 500,
-    });
+    console.error('Error generating OG image:', e);
+    return new Response(
+      JSON.stringify({ 
+        error: 'Failed to generate image',
+        message: e.message,
+        stack: process.env.NODE_ENV === 'development' ? e.stack : undefined
+      }), 
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
   }
 }
 

@@ -79,25 +79,21 @@ export async function fetchUserRepos(
   return repos;
 }
 
-export async function fetchYearlyCommits(
+async function fetchAllCommitsFromRepo(
   accessToken: string,
+  repoFullName: string,
   username: string,
-  year: number = 2025
+  startDate: string,
+  endDate: string
 ): Promise<number> {
-  const startDate = `${year}-01-01T00:00:00Z`;
-  const endDate = `${year}-12-31T23:59:59Z`;
-
-  // Get all repos
-  const repos = await fetchUserRepos(accessToken, username);
-  
   let totalCommits = 0;
-  const commitTimeline: { month: string; commits: number }[] = [];
+  let page = 1;
+  const perPage = 100;
 
-  // For each repo, fetch commits
-  for (const repo of repos.slice(0, 50)) { // Limit to 50 repos for performance
+  while (true) {
     try {
       const response = await fetch(
-        `https://api.github.com/repos/${repo.full_name}/commits?since=${startDate}&until=${endDate}&author=${username}&per_page=100`,
+        `https://api.github.com/repos/${repoFullName}/commits?since=${startDate}&until=${endDate}&author=${username}&per_page=${perPage}&page=${page}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -106,21 +102,92 @@ export async function fetchYearlyCommits(
         }
       );
 
-      if (response.ok) {
-        const commits = await response.json();
-        totalCommits += commits.length;
-
-        // If we got 100 commits, there might be more (pagination)
-        if (commits.length === 100) {
-          // Estimate more commits (GitHub API limitation)
-          totalCommits += 50; // Rough estimate
+      if (!response.ok) {
+        // If rate limited or other error, break and return what we have
+        if (response.status === 403 || response.status === 404) {
+          break;
         }
+        throw new Error(`Failed to fetch commits: ${response.status}`);
       }
+
+      const commits = await response.json();
+      
+      if (commits.length === 0) {
+        break;
+      }
+
+      totalCommits += commits.length;
+
+      // Check if there are more pages using Link header
+      const linkHeader = response.headers.get("link");
+      const hasNextPage = linkHeader?.includes('rel="next"');
+
+      if (!hasNextPage || commits.length < perPage) {
+        break;
+      }
+
+      page++;
     } catch (error) {
-      console.error(`Error fetching commits for ${repo.full_name}:`, error);
+      console.error(`Error fetching commits for ${repoFullName} page ${page}:`, error);
+      break;
     }
   }
 
+  return totalCommits;
+}
+
+export async function fetchYearlyCommits(
+  accessToken: string,
+  username: string,
+  year: number = 2025
+): Promise<number> {
+  const startDate = `${year}-01-01T00:00:00Z`;
+  const endDate = `${year}-12-31T23:59:59Z`;
+
+  // Get all repos (no limit, but we'll process them in batches)
+  const repos = await fetchUserRepos(accessToken, username);
+  
+  console.log(`Found ${repos.length} repositories to check for commits`);
+  
+  let totalCommits = 0;
+  let processedRepos = 0;
+
+  // Process all repos, but limit concurrent requests to avoid rate limits
+  const batchSize = 10;
+  for (let i = 0; i < repos.length; i += batchSize) {
+    const batch = repos.slice(i, i + batchSize);
+    
+    // Process batch in parallel
+    const batchPromises = batch.map(async (repo) => {
+      try {
+        const commits = await fetchAllCommitsFromRepo(
+          accessToken,
+          repo.full_name,
+          username,
+          startDate,
+          endDate
+        );
+        processedRepos++;
+        if (commits > 0) {
+          console.log(`Repo ${repo.full_name}: ${commits} commits`);
+        }
+        return commits;
+      } catch (error) {
+        console.error(`Error processing repo ${repo.full_name}:`, error);
+        return 0;
+      }
+    });
+
+    const batchResults = await Promise.all(batchPromises);
+    totalCommits += batchResults.reduce((sum, commits) => sum + commits, 0);
+    
+    // Small delay between batches to avoid rate limits
+    if (i + batchSize < repos.length) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+
+  console.log(`Total commits for ${year}: ${totalCommits} across ${processedRepos} repositories`);
   return totalCommits;
 }
 
@@ -172,6 +239,60 @@ export async function fetchPublicRepos(username: string): Promise<GitHubRepo[]> 
   return repos;
 }
 
+async function fetchAllPublicCommitsFromRepo(
+  repoFullName: string,
+  username: string,
+  startDate: string,
+  endDate: string
+): Promise<number> {
+  let totalCommits = 0;
+  let page = 1;
+  const perPage = 100;
+
+  while (true) {
+    try {
+      const response = await fetch(
+        `https://api.github.com/repos/${repoFullName}/commits?since=${startDate}&until=${endDate}&author=${username}&per_page=${perPage}&page=${page}`,
+        {
+          headers: {
+            Accept: "application/vnd.github.v3+json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 403 || response.status === 404) {
+          break;
+        }
+        throw new Error(`Failed to fetch commits: ${response.status}`);
+      }
+
+      const commits = await response.json();
+      
+      if (commits.length === 0) {
+        break;
+      }
+
+      totalCommits += commits.length;
+
+      // Check if there are more pages using Link header
+      const linkHeader = response.headers.get("link");
+      const hasNextPage = linkHeader?.includes('rel="next"');
+
+      if (!hasNextPage || commits.length < perPage) {
+        break;
+      }
+
+      page++;
+    } catch (error) {
+      console.error(`Error fetching commits for ${repoFullName} page ${page}:`, error);
+      break;
+    }
+  }
+
+  return totalCommits;
+}
+
 export async function fetchPublicYearlyCommits(
   username: string,
   year: number = 2025
@@ -182,35 +303,40 @@ export async function fetchPublicYearlyCommits(
   // Get all public repos
   const repos = await fetchPublicRepos(username);
   
+  console.log(`Found ${repos.length} public repositories to check for commits`);
+  
   let totalCommits = 0;
+  let processedRepos = 0;
 
-  // For each repo, fetch commits (public data only)
-  for (const repo of repos.slice(0, 50)) { // Limit to 50 repos for performance
-    try {
-      const response = await fetch(
-        `https://api.github.com/repos/${repo.full_name}/commits?since=${startDate}&until=${endDate}&author=${username}&per_page=100`,
-        {
-          headers: {
-            Accept: "application/vnd.github.v3+json",
-          },
+  // Process all repos in batches to avoid rate limits
+  const batchSize = 5; // Smaller batch for unauthenticated requests
+  for (let i = 0; i < repos.length; i += batchSize) {
+    const batch = repos.slice(i, i + batchSize);
+    
+    // Process batch sequentially for public API (rate limit is stricter)
+    for (const repo of batch) {
+      try {
+        const commits = await fetchAllPublicCommitsFromRepo(
+          repo.full_name,
+          username,
+          startDate,
+          endDate
+        );
+        processedRepos++;
+        if (commits > 0) {
+          console.log(`Repo ${repo.full_name}: ${commits} commits`);
         }
-      );
-
-      if (response.ok) {
-        const commits = await response.json();
-        totalCommits += commits.length;
-
-        // If we got 100 commits, there might be more (pagination)
-        if (commits.length === 100) {
-          // Estimate more commits (GitHub API limitation)
-          totalCommits += 50; // Rough estimate
-        }
+        totalCommits += commits;
+        
+        // Delay between requests for unauthenticated API
+        await new Promise(resolve => setTimeout(resolve, 200));
+      } catch (error) {
+        console.error(`Error processing repo ${repo.full_name}:`, error);
       }
-    } catch (error) {
-      console.error(`Error fetching commits for ${repo.full_name}:`, error);
     }
   }
 
+  console.log(`Total public commits for ${year}: ${totalCommits} across ${processedRepos} repositories`);
   return totalCommits;
 }
 

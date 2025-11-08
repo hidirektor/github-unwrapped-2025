@@ -4,6 +4,10 @@ const nextConfig = {
   images: {
     domains: ['avatars.githubusercontent.com', 'github.com'],
   },
+  // Enable experimental features for OG image generation
+  experimental: {
+    // This helps with Edge Runtime compatibility
+  },
 }
 
 module.exports = nextConfig

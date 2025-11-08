@@ -1,8 +1,8 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Linkedin, Download } from "lucide-react";
-import { useState } from "react";
+import {Button} from "@/components/ui/button";
+import {Download, ExternalLink, Linkedin} from "lucide-react";
+import {useState} from "react";
 
 interface LinkedInShareProps {
   username: string;
@@ -61,25 +61,61 @@ ${currentUrl}`;
   const handleDownloadImage = async () => {
     setGenerating(true);
     try {
-      const response = await fetch(ogImageUrl);
+      // First, try to fetch the image
+      const response = await fetch(ogImageUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'image/png,image/*,*/*',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+      }
+
+      // Check if response is actually an image
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.startsWith('image/')) {
+        throw new Error('Response is not an image');
+      }
+
       const blob = await response.blob();
+      
+      if (blob.size === 0) {
+        throw new Error('Image is empty');
+      }
+
+      // Create download link
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `github-unwrapped-2025-${username}.png`;
+      a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      
+      // Cleanup
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
     } catch (error) {
       console.error('Error downloading image:', error);
+      alert(`Failed to download image: ${error instanceof Error ? error.message : 'Unknown error'}\n\nTry opening the image URL directly:\n${ogImageUrl}`);
+      
+      // Fallback: Open image in new tab
+      window.open(ogImageUrl, '_blank');
     } finally {
       setGenerating(false);
     }
   };
 
+  const handleOpenImage = () => {
+    window.open(ogImageUrl, '_blank');
+  };
+
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       <Button
         onClick={handleShare}
         className="bg-[#0077b5] hover:bg-[#005885] text-white"
@@ -97,6 +133,16 @@ ${currentUrl}`;
       >
         <Download className="mr-2 h-5 w-5" />
         {generating ? "Generating..." : "Download Image"}
+      </Button>
+      <Button
+        onClick={handleOpenImage}
+        variant="ghost"
+        className="glass border-purple-500/30 text-white hover:bg-white/10"
+        size="lg"
+        title="Open image in new tab"
+      >
+        <ExternalLink className="mr-2 h-5 w-5" />
+        Open Image
       </Button>
     </div>
   );
