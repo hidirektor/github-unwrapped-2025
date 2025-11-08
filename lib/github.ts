@@ -21,9 +21,11 @@ export interface GitHubRepo {
   language: string;
   updated_at: string;
   html_url: string;
+  default_branch?: string; // Default branch (usually 'main' or 'master')
   commits_count?: number; // Number of commits in the year
   prs_count?: number; // Number of PRs (estimated)
   is_pinned?: boolean; // Whether repo is pinned
+  fork?: boolean; // Whether repo is a fork
 }
 
 export interface GitHubStats {
@@ -36,7 +38,7 @@ export interface GitHubStats {
   commitTimeline: { month: string; commits: number }[];
 }
 
-export async function fetchGitHubUser(accessToken: string): Promise<GitHubUser & { email?: string }> {
+export async function fetchGitHubUser(accessToken: string): Promise<GitHubUser & { email?: string; emails?: string[] }> {
   const response = await fetch("https://api.github.com/user", {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -50,7 +52,8 @@ export async function fetchGitHubUser(accessToken: string): Promise<GitHubUser &
 
   const user = await response.json();
   
-  // Try to get user's emails for better commit matching
+  // Get all user's emails for better commit matching
+  // GitHub counts commits based on email addresses associated with the account
   try {
     const emailsResponse = await fetch("https://api.github.com/user/emails", {
       headers: {
@@ -61,10 +64,18 @@ export async function fetchGitHubUser(accessToken: string): Promise<GitHubUser &
     
     if (emailsResponse.ok) {
       const emails = await emailsResponse.json();
+      // Get all verified emails (GitHub uses all verified emails for contribution counting)
+      const verifiedEmails = emails
+        .filter((email: any) => email.verified)
+        .map((email: any) => email.email.toLowerCase());
+      
+      user.emails = verifiedEmails;
       const primaryEmail = emails.find((email: any) => email.primary)?.email || emails[0]?.email;
       if (primaryEmail) {
         user.email = primaryEmail;
       }
+      
+      console.log(`Found ${verifiedEmails.length} verified email addresses for user`);
     }
   } catch (error) {
     console.error("Failed to fetch user emails:", error);
@@ -114,8 +125,10 @@ export async function fetchUserRepos(
         language: repo.language,
         updated_at: repo.updated_at,
         html_url: repo.html_url,
+        default_branch: repo.default_branch, // Store default branch for accurate commit counting
+        fork: repo.fork || false, // Store fork status (GitHub doesn't count commits in forks)
       }))
-      .filter((repo: GitHubRepo) => {
+      .filter((repo: GitHubRepo & { default_branch?: string }) => {
         // Avoid duplicate repos
         if (seenRepos.has(repo.full_name)) {
           return false;
@@ -177,8 +190,10 @@ export async function fetchUserRepos(
                 language: repo.language,
                 updated_at: repo.updated_at,
                 html_url: repo.html_url,
+                default_branch: repo.default_branch, // Store default branch
+                fork: repo.fork || false, // Store fork status
               }))
-              .filter((repo: GitHubRepo) => {
+              .filter((repo: GitHubRepo & { default_branch?: string }) => {
                 if (seenRepos.has(repo.full_name)) {
                   return false;
                 }
@@ -205,22 +220,19 @@ export async function fetchUserRepos(
   return repos;
 }
 
-async function fetchAllCommitsFromRepo(
+// Fetch all branches from a repository
+async function fetchAllBranches(
   accessToken: string,
-  repoFullName: string,
-  username: string,
-  startDate: string,
-  endDate: string
-): Promise<number> {
-  let totalCommits = 0;
+  repoFullName: string
+): Promise<string[]> {
+  const branches: string[] = [];
   let page = 1;
   const perPage = 100;
 
   while (true) {
     try {
-      // Try with author filter first
-      let response = await fetch(
-        `https://api.github.com/repos/${repoFullName}/commits?since=${startDate}&until=${endDate}&author=${username}&per_page=${perPage}&page=${page}`,
+      const response = await fetch(
+        `https://api.github.com/repos/${repoFullName}/branches?per_page=${perPage}&page=${page}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -229,23 +241,132 @@ async function fetchAllCommitsFromRepo(
         }
       );
 
-      // If author filter doesn't work or returns 404, try without author filter
-      // (some commits might have different email addresses)
-      if (!response.ok && response.status === 404) {
-        response = await fetch(
-          `https://api.github.com/repos/${repoFullName}/commits?since=${startDate}&until=${endDate}&per_page=${perPage}&page=${page}`,
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              Accept: "application/vnd.github.v3+json",
-            },
-          }
-        );
+      if (!response.ok) {
+        if (response.status === 403 || response.status === 404) {
+          break;
+        }
+        // If we can't fetch branches, return empty array (will fall back to default branch)
+        console.warn(`Could not fetch branches for ${repoFullName}: ${response.status}`);
+        break;
       }
 
+      const data = await response.json();
+      if (data.length === 0) break;
+
+      branches.push(...data.map((branch: any) => branch.name));
+
+      const linkHeader = response.headers.get("link");
+      const hasNextPage = linkHeader?.includes('rel="next"');
+
+      if (!hasNextPage || data.length < perPage) {
+        break;
+      }
+
+      page++;
+    } catch (error) {
+      console.error(`Error fetching branches for ${repoFullName}:`, error);
+      break;
+    }
+  }
+
+  return branches;
+}
+
+async function fetchAllCommitsFromRepo(
+  accessToken: string,
+  repoFullName: string,
+  username: string,
+  startDate: string,
+  endDate: string,
+  userEmails: string[] = [],
+  isFork: boolean = false
+): Promise<number> {
+  // GitHub doesn't count commits in forks (unless they're in a PR to the parent repo)
+  // For now, we'll skip fork commits entirely to match GitHub's behavior more closely
+  // Note: In the future, we could check if commits are in PRs, but that's complex
+  if (isFork) {
+    return 0;
+  }
+
+  const usernameLower = username.toLowerCase();
+  const userEmailsLower = userEmails.map(e => e.toLowerCase());
+  
+  // Track unique commits by SHA to avoid counting the same commit multiple times
+  // (a commit can exist in multiple branches)
+  const seenCommitSHAs = new Set<string>();
+  let totalCommits = 0;
+
+  // Fetch all branches for this repository
+  const branches = await fetchAllBranches(accessToken, repoFullName);
+  
+  // If we couldn't fetch branches, fall back to fetching all commits (no branch filter)
+  // This happens when the API doesn't allow branch listing
+  if (branches.length === 0) {
+    console.log(`No branches found for ${repoFullName}, fetching all commits`);
+    // Fetch commits from all branches (no sha parameter)
+    totalCommits = await fetchCommitsFromBranch(
+      accessToken,
+      repoFullName,
+      usernameLower,
+      userEmailsLower,
+      startDate,
+      endDate,
+      seenCommitSHAs,
+      undefined // undefined = all branches
+    );
+  } else {
+    // Fetch commits from each branch
+    console.log(`Fetching commits from ${branches.length} branches for ${repoFullName}`);
+    for (const branch of branches) {
+      const branchCommits = await fetchCommitsFromBranch(
+        accessToken,
+        repoFullName,
+        usernameLower,
+        userEmailsLower,
+        startDate,
+        endDate,
+        seenCommitSHAs,
+        branch
+      );
+      totalCommits += branchCommits;
+    }
+  }
+
+  return totalCommits;
+}
+
+// Helper function to fetch commits from a specific branch (or all branches if branch is undefined)
+async function fetchCommitsFromBranch(
+  accessToken: string,
+  repoFullName: string,
+  usernameLower: string,
+  userEmailsLower: string[],
+  startDate: string,
+  endDate: string,
+  seenCommitSHAs: Set<string>,
+  branch?: string
+): Promise<number> {
+  let branchCommits = 0;
+  let page = 1;
+  const perPage = 100;
+
+  while (true) {
+    try {
+      // If branch is specified, fetch commits from that branch
+      // Otherwise, fetch from all branches (default behavior when sha is not provided)
+      const shaParam = branch ? `&sha=${branch}` : "";
+      const response = await fetch(
+        `https://api.github.com/repos/${repoFullName}/commits?since=${startDate}&until=${endDate}${shaParam}&per_page=${perPage}&page=${page}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+        }
+      );
+
       if (!response.ok) {
-        // If rate limited or other error, break and return what we have
-        if (response.status === 403 || response.status === 404) {
+        if (response.status === 403 || response.status === 404 || response.status === 409) {
           break;
         }
         throw new Error(`Failed to fetch commits: ${response.status}`);
@@ -257,16 +378,72 @@ async function fetchAllCommitsFromRepo(
         break;
       }
 
-      // Filter commits by author username (in case we didn't use author filter)
-      // Check both author.login and committer.login
+      // Filter commits using GitHub's contribution counting logic:
+      // 1. Check author.login or committer.login matches username
+      // 2. Check author.email or committer.email matches user's verified emails
+      // 3. Check for co-authored commits (Co-authored-by in commit message)
+      // 4. Exclude merge commits that don't match user (GitHub excludes most merge commits)
+      // 5. Exclude duplicate commits (same SHA across branches)
       const userCommits = commits.filter((commit: any) => {
+        const commitSHA = commit.sha;
+        
+        // Skip if we've already counted this commit (from another branch)
+        if (seenCommitSHAs.has(commitSHA)) {
+          return false;
+        }
+
+        // Check author/committer username
         const authorLogin = commit.author?.login?.toLowerCase();
         const committerLogin = commit.committer?.login?.toLowerCase();
-        const userLower = username.toLowerCase();
-        return authorLogin === userLower || committerLogin === userLower;
+        const isAuthorMatch = authorLogin === usernameLower;
+        const isCommitterMatch = committerLogin === usernameLower;
+
+        // Check author/committer email
+        const authorEmail = commit.commit?.author?.email?.toLowerCase();
+        const committerEmail = commit.commit?.committer?.email?.toLowerCase();
+        const isAuthorEmailMatch = authorEmail && userEmailsLower.includes(authorEmail);
+        const isCommitterEmailMatch = committerEmail && userEmailsLower.includes(committerEmail);
+
+        // Check for co-authored commits in commit message
+        const commitMessage = commit.commit?.message || "";
+        const coAuthoredPattern = /co-authored-by:\s*(.+?)\s*<(.+?)>/gi;
+        const coAuthors: string[] = [];
+        let match;
+        while ((match = coAuthoredPattern.exec(commitMessage)) !== null) {
+          const coAuthorEmail = match[2]?.toLowerCase();
+          if (coAuthorEmail) {
+            coAuthors.push(coAuthorEmail);
+          }
+        }
+        const isCoAuthorMatch = coAuthors.some(email => userEmailsLower.includes(email));
+
+        // Check if it's a merge commit
+        const isMergeCommit = commit.commit?.message?.startsWith("Merge") || 
+                             commit.commit?.parents?.length > 1;
+
+        // GitHub counts commits if:
+        // 1. User is author OR committer (by login or email)
+        // 2. User is co-author (by email)
+        // 3. For merge commits, only count if user created the merge (not just merged by someone else)
+        const isUserCommit = isAuthorMatch || isCommitterMatch || 
+                           isAuthorEmailMatch || isCommitterEmailMatch || 
+                           isCoAuthorMatch;
+
+        // For merge commits, only count if user is the author (not just committer)
+        if (isMergeCommit && !isAuthorMatch && !isAuthorEmailMatch) {
+          return false;
+        }
+
+        if (isUserCommit) {
+          // Mark this commit as seen so we don't count it again from other branches
+          seenCommitSHAs.add(commitSHA);
+          return true;
+        }
+
+        return false;
       });
 
-      totalCommits += userCommits.length;
+      branchCommits += userCommits.length;
 
       // Check if there are more pages using Link header
       const linkHeader = response.headers.get("link");
@@ -279,12 +456,12 @@ async function fetchAllCommitsFromRepo(
 
       page++;
     } catch (error) {
-      console.error(`Error fetching commits for ${repoFullName} page ${page}:`, error);
+      console.error(`Error fetching commits for ${repoFullName}${branch ? ` (branch: ${branch})` : ""} page ${page}:`, error);
       break;
     }
   }
 
-  return totalCommits;
+  return branchCommits;
 }
 
 // Fetch commits with dates for timeline generation
@@ -293,7 +470,68 @@ async function fetchCommitsWithDatesFromRepo(
   repoFullName: string,
   username: string,
   startDate: string,
-  endDate: string
+  endDate: string,
+  userEmails: string[] = [],
+  isFork: boolean = false
+): Promise<Date[]> {
+  // GitHub doesn't count commits in forks
+  if (isFork) {
+    return [];
+  }
+
+  const commitDates: Date[] = [];
+  const usernameLower = username.toLowerCase();
+  const userEmailsLower = userEmails.map(e => e.toLowerCase());
+  
+  // Track unique commits by SHA to avoid counting the same commit multiple times
+  const seenCommitSHAs = new Set<string>();
+
+  // Fetch all branches for this repository
+  const branches = await fetchAllBranches(accessToken, repoFullName);
+  
+  // If we couldn't fetch branches, fall back to fetching all commits
+  if (branches.length === 0) {
+    const dates = await fetchCommitDatesFromBranch(
+      accessToken,
+      repoFullName,
+      usernameLower,
+      userEmailsLower,
+      startDate,
+      endDate,
+      seenCommitSHAs,
+      undefined
+    );
+    commitDates.push(...dates);
+  } else {
+    // Fetch commits from each branch
+    for (const branch of branches) {
+      const dates = await fetchCommitDatesFromBranch(
+        accessToken,
+        repoFullName,
+        usernameLower,
+        userEmailsLower,
+        startDate,
+        endDate,
+        seenCommitSHAs,
+        branch
+      );
+      commitDates.push(...dates);
+    }
+  }
+
+  return commitDates;
+}
+
+// Helper function to fetch commit dates from a specific branch
+async function fetchCommitDatesFromBranch(
+  accessToken: string,
+  repoFullName: string,
+  usernameLower: string,
+  userEmailsLower: string[],
+  startDate: string,
+  endDate: string,
+  seenCommitSHAs: Set<string>,
+  branch?: string
 ): Promise<Date[]> {
   const commitDates: Date[] = [];
   let page = 1;
@@ -301,8 +539,9 @@ async function fetchCommitsWithDatesFromRepo(
 
   while (true) {
     try {
-      let response = await fetch(
-        `https://api.github.com/repos/${repoFullName}/commits?since=${startDate}&until=${endDate}&author=${username}&per_page=${perPage}&page=${page}`,
+      const shaParam = branch ? `&sha=${branch}` : "";
+      const response = await fetch(
+        `https://api.github.com/repos/${repoFullName}/commits?since=${startDate}&until=${endDate}${shaParam}&per_page=${perPage}&page=${page}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -311,20 +550,8 @@ async function fetchCommitsWithDatesFromRepo(
         }
       );
 
-      if (!response.ok && response.status === 404) {
-        response = await fetch(
-          `https://api.github.com/repos/${repoFullName}/commits?since=${startDate}&until=${endDate}&per_page=${perPage}&page=${page}`,
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              Accept: "application/vnd.github.v3+json",
-            },
-          }
-        );
-      }
-
       if (!response.ok) {
-        if (response.status === 403 || response.status === 404) {
+        if (response.status === 403 || response.status === 404 || response.status === 409) {
           break;
         }
         throw new Error(`Failed to fetch commits: ${response.status}`);
@@ -336,11 +563,54 @@ async function fetchCommitsWithDatesFromRepo(
         break;
       }
 
+      // Filter commits using the same logic as fetchAllCommitsFromRepo
       const userCommits = commits.filter((commit: any) => {
+        const commitSHA = commit.sha;
+        
+        // Skip if we've already counted this commit
+        if (seenCommitSHAs.has(commitSHA)) {
+          return false;
+        }
+
         const authorLogin = commit.author?.login?.toLowerCase();
         const committerLogin = commit.committer?.login?.toLowerCase();
-        const userLower = username.toLowerCase();
-        return authorLogin === userLower || committerLogin === userLower;
+        const isAuthorMatch = authorLogin === usernameLower;
+        const isCommitterMatch = committerLogin === usernameLower;
+
+        const authorEmail = commit.commit?.author?.email?.toLowerCase();
+        const committerEmail = commit.commit?.committer?.email?.toLowerCase();
+        const isAuthorEmailMatch = authorEmail && userEmailsLower.includes(authorEmail);
+        const isCommitterEmailMatch = committerEmail && userEmailsLower.includes(committerEmail);
+
+        const commitMessage = commit.commit?.message || "";
+        const coAuthoredPattern = /co-authored-by:\s*(.+?)\s*<(.+?)>/gi;
+        const coAuthors: string[] = [];
+        let match;
+        while ((match = coAuthoredPattern.exec(commitMessage)) !== null) {
+          const coAuthorEmail = match[2]?.toLowerCase();
+          if (coAuthorEmail) {
+            coAuthors.push(coAuthorEmail);
+          }
+        }
+        const isCoAuthorMatch = coAuthors.some(email => userEmailsLower.includes(email));
+
+        const isMergeCommit = commit.commit?.message?.startsWith("Merge") || 
+                             commit.commit?.parents?.length > 1;
+
+        const isUserCommit = isAuthorMatch || isCommitterMatch || 
+                           isAuthorEmailMatch || isCommitterEmailMatch || 
+                           isCoAuthorMatch;
+
+        if (isMergeCommit && !isAuthorMatch && !isAuthorEmailMatch) {
+          return false;
+        }
+
+        if (isUserCommit) {
+          seenCommitSHAs.add(commitSHA);
+          return true;
+        }
+
+        return false;
       });
 
       // Extract commit dates
@@ -359,7 +629,7 @@ async function fetchCommitsWithDatesFromRepo(
 
       page++;
     } catch (error) {
-      console.error(`Error fetching commits for ${repoFullName} page ${page}:`, error);
+      console.error(`Error fetching commits for ${repoFullName}${branch ? ` (branch: ${branch})` : ""} page ${page}:`, error);
       break;
     }
   }
@@ -374,6 +644,10 @@ export async function fetchYearlyCommits(
 ): Promise<number> {
   const startDate = `${year}-01-01T00:00:00Z`;
   const endDate = `${year}-12-31T23:59:59Z`;
+
+  // Get user emails for better commit matching
+  const user = await fetchGitHubUser(accessToken);
+  const userEmails = user.emails || [];
 
   // Get all repos (no limit, but we'll process them in batches)
   const repos = await fetchUserRepos(accessToken, username);
@@ -396,7 +670,9 @@ export async function fetchYearlyCommits(
           repo.full_name,
           username,
           startDate,
-          endDate
+          endDate,
+          userEmails, // Pass user emails for better matching
+          (repo as any).fork || false // Pass fork status
         );
         processedRepos++;
         if (commits > 0) {
@@ -544,6 +820,7 @@ export async function fetchPublicRepos(username: string): Promise<GitHubRepo[]> 
       language: repo.language,
       updated_at: repo.updated_at,
       html_url: repo.html_url,
+      fork: repo.fork || false, // Store fork status
     }));
 
     repos.push(...mappedRepos);
@@ -559,8 +836,17 @@ async function fetchAllPublicCommitsFromRepo(
   repoFullName: string,
   username: string,
   startDate: string,
-  endDate: string
+  endDate: string,
+  isFork: boolean = false
 ): Promise<number> {
+  // GitHub doesn't count commits in forks
+  if (isFork) {
+    return 0;
+  }
+
+  // Track unique commits by SHA to avoid counting duplicates
+  // (public API returns commits from all branches when sha is not specified)
+  const seenCommitSHAs = new Set<string>();
   let totalCommits = 0;
   let page = 1;
   const perPage = 100;
@@ -568,6 +854,7 @@ async function fetchAllPublicCommitsFromRepo(
   while (true) {
     try {
       // Try with author filter first
+      // Note: Public API without sha parameter returns commits from all branches
       let response = await fetch(
         `https://api.github.com/repos/${repoFullName}/commits?since=${startDate}&until=${endDate}&author=${username}&per_page=${perPage}&page=${page}`,
         {
@@ -590,7 +877,8 @@ async function fetchAllPublicCommitsFromRepo(
       }
 
       if (!response.ok) {
-        if (response.status === 403 || response.status === 404) {
+        // 409 Conflict usually means empty repository or no commits in the date range
+        if (response.status === 403 || response.status === 404 || response.status === 409) {
           break;
         }
         throw new Error(`Failed to fetch commits: ${response.status}`);
@@ -602,12 +890,26 @@ async function fetchAllPublicCommitsFromRepo(
         break;
       }
 
-      // Filter commits by author username (in case we didn't use author filter)
+      // Filter commits by author username and track unique commits by SHA
       const userCommits = commits.filter((commit: any) => {
+        const commitSHA = commit.sha;
+        
+        // Skip if we've already counted this commit
+        if (seenCommitSHAs.has(commitSHA)) {
+          return false;
+        }
+
         const authorLogin = commit.author?.login?.toLowerCase();
         const committerLogin = commit.committer?.login?.toLowerCase();
         const userLower = username.toLowerCase();
-        return authorLogin === userLower || committerLogin === userLower;
+        const isMatch = authorLogin === userLower || committerLogin === userLower;
+
+        if (isMatch) {
+          seenCommitSHAs.add(commitSHA);
+          return true;
+        }
+
+        return false;
       });
 
       totalCommits += userCommits.length;
@@ -635,14 +937,22 @@ async function fetchPublicCommitsWithDatesFromRepo(
   repoFullName: string,
   username: string,
   startDate: string,
-  endDate: string
+  endDate: string,
+  isFork: boolean = false
 ): Promise<Date[]> {
+  // GitHub doesn't count commits in forks
+  if (isFork) {
+    return [];
+  }
+
   const commitDates: Date[] = [];
+  const seenCommitSHAs = new Set<string>();
   let page = 1;
   const perPage = 100;
 
   while (true) {
     try {
+      // Public API without sha parameter returns commits from all branches
       let response = await fetch(
         `https://api.github.com/repos/${repoFullName}/commits?since=${startDate}&until=${endDate}&author=${username}&per_page=${perPage}&page=${page}`,
         {
@@ -664,7 +974,8 @@ async function fetchPublicCommitsWithDatesFromRepo(
       }
 
       if (!response.ok) {
-        if (response.status === 403 || response.status === 404) {
+        // 409 Conflict usually means empty repository or no commits in the date range
+        if (response.status === 403 || response.status === 404 || response.status === 409) {
           break;
         }
         throw new Error(`Failed to fetch commits: ${response.status}`);
@@ -677,10 +988,24 @@ async function fetchPublicCommitsWithDatesFromRepo(
       }
 
       const userCommits = commits.filter((commit: any) => {
+        const commitSHA = commit.sha;
+        
+        // Skip if we've already counted this commit
+        if (seenCommitSHAs.has(commitSHA)) {
+          return false;
+        }
+
         const authorLogin = commit.author?.login?.toLowerCase();
         const committerLogin = commit.committer?.login?.toLowerCase();
         const userLower = username.toLowerCase();
-        return authorLogin === userLower || committerLogin === userLower;
+        const isMatch = authorLogin === userLower || committerLogin === userLower;
+
+        if (isMatch) {
+          seenCommitSHAs.add(commitSHA);
+          return true;
+        }
+
+        return false;
       });
 
       userCommits.forEach((commit: any) => {
@@ -733,7 +1058,8 @@ export async function fetchPublicYearlyCommits(
           repo.full_name,
           username,
           startDate,
-          endDate
+          endDate,
+          (repo as any).fork || false // Pass fork status
         );
         processedRepos++;
         if (commits > 0) {
@@ -758,6 +1084,13 @@ export async function fetchGitHubStats(
   username: string,
   year?: number
 ): Promise<GitHubStats> {
+  // First, fetch user info to get verified email addresses
+  // GitHub counts contributions based on email addresses associated with the account
+  const user = await fetchGitHubUser(accessToken);
+  const userEmails = user.emails || [];
+  
+  console.log(`User: ${username}, Verified emails: ${userEmails.length > 0 ? userEmails.join(", ") : "none"}`);
+  
   const repos = await fetchUserRepos(accessToken, username);
   
   // Calculate last 365 days from TODAY (request time)
@@ -798,11 +1131,13 @@ export async function fetchGitHubStats(
           repo.full_name,
           username,
           startDateStr,
-          endDateStr
+          endDateStr,
+          userEmails, // Pass user emails for better matching
+          (repo as any).fork || false // Pass fork status (GitHub doesn't count commits in forks)
         );
         totalCommits += commits;
         if (commits > 0) {
-          console.log(`✓ ${repo.full_name}: ${commits} commits`);
+          console.log(`✓ ${repo.full_name}: ${commits} commits (from all branches)`);
         }
         return {
           ...repo,
@@ -881,75 +1216,82 @@ export async function fetchGitHubStats(
     }
   });
 
-  // Fetch commit dates for timeline (sample from top repos to avoid too many API calls)
+  // Fetch commit dates for timeline from ALL repos with commits
+  // This ensures accurate timeline representation
   const allCommitDates: Date[] = [];
-  const topReposForTimeline = reposWithCommits
-    .filter(r => (r.commits_count || 0) > 0)
-    .sort((a, b) => (b.commits_count || 0) - (a.commits_count || 0))
-    .slice(0, Math.min(20, reposWithCommits.length)); // Sample top 20 repos
-
-  console.log(`Fetching commit dates from ${topReposForTimeline.length} repos for timeline...`);
+  const reposWithCommitsForTimeline = reposWithCommits.filter(r => (r.commits_count || 0) > 0);
   
-  for (const repo of topReposForTimeline) {
-    try {
-      const dates = await fetchCommitsWithDatesFromRepo(
-        accessToken,
-        repo.full_name,
-        username,
-        startDateStr,
-        endDateStr
-      );
-      allCommitDates.push(...dates);
-      
-      // Small delay to avoid rate limits
-      await new Promise(resolve => setTimeout(resolve, 50));
-    } catch (error) {
-      console.error(`Error fetching commit dates for ${repo.full_name}:`, error);
+  console.log(`Fetching commit dates from ${reposWithCommitsForTimeline.length} repos for timeline...`);
+  
+  // Process repos in batches to get commit dates
+  const timelineBatchSize = 10;
+  for (let i = 0; i < reposWithCommitsForTimeline.length; i += timelineBatchSize) {
+    const batch = reposWithCommitsForTimeline.slice(i, i + timelineBatchSize);
+    
+    const batchPromises = batch.map(async (repo) => {
+      try {
+        const dates = await fetchCommitsWithDatesFromRepo(
+          accessToken,
+          repo.full_name,
+          username,
+          startDateStr,
+          endDateStr,
+          userEmails, // Pass user emails for better matching
+          (repo as any).fork || false // Pass fork status (GitHub doesn't count commits in forks)
+        );
+        return dates;
+      } catch (error) {
+        console.error(`Error fetching commit dates for ${repo.full_name}:`, error);
+        return [];
+      }
+    });
+    
+    const batchResults = await Promise.all(batchPromises);
+    batchResults.forEach(dates => allCommitDates.push(...dates));
+    
+    // Small delay to avoid rate limits
+    if (i + timelineBatchSize < reposWithCommitsForTimeline.length) {
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
 
-  // Group commits by month
+  console.log(`Fetched ${allCommitDates.length} commit dates for timeline`);
+
+  // Filter commit dates to ensure they're within the date range
+  const filteredCommitDates = allCommitDates.filter((date) => {
+    return date >= startDate && date <= endDate;
+  });
+
+  // Group commits by month based on actual date range (startDate to endDate)
   const monthCounts: Record<string, number> = {};
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   
-  allCommitDates.forEach((date) => {
+  filteredCommitDates.forEach((date) => {
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
   });
 
-  // Generate timeline for last 365 days (only months that have passed or current month)
-  const today = new Date();
+  // Generate timeline from startDate to endDate (last 365 days)
   const commitTimeline: { month: string; commits: number }[] = [];
   
-  // Start from 12 months ago and go to current month
-  for (let i = 11; i >= 0; i--) {
-    const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-    // Only include months that are in the past or current month (not future months)
-    // Check if the month is before or equal to current month in the same year, or in a previous year
-    const isPastOrCurrentMonth = 
-      (date.getFullYear() < today.getFullYear()) ||
-      (date.getFullYear() === today.getFullYear() && date.getMonth() <= today.getMonth());
+  // Start from startDate and go month by month until endDate
+  const currentMonth = new Date(startDate);
+  currentMonth.setDate(1); // Start of the month
+  
+  while (currentMonth <= endDate) {
+    const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+    const monthName = monthNames[currentMonth.getMonth()];
     
-    if (isPastOrCurrentMonth) {
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const monthName = monthNames[date.getMonth()];
-      commitTimeline.push({
-        month: monthName,
-        commits: monthCounts[monthKey] || 0,
-      });
-    }
+    commitTimeline.push({
+      month: monthName,
+      commits: monthCounts[monthKey] || 0,
+    });
+    
+    // Move to next month
+    currentMonth.setMonth(currentMonth.getMonth() + 1);
   }
 
-  // Scale up the timeline to match total commits (if we sampled repos)
-  if (topReposForTimeline.length < reposWithCommits.length && totalCommits > 0) {
-    const sampledCommits = allCommitDates.length;
-    if (sampledCommits > 0) {
-      const scaleFactor = totalCommits / sampledCommits;
-      commitTimeline.forEach((item) => {
-        item.commits = Math.round(item.commits * scaleFactor);
-      });
-    }
-  }
+  console.log(`Timeline generated with ${commitTimeline.length} months, total commits: ${filteredCommitDates.length}`);
 
   // Estimate PRs and Issues (GitHub API doesn't provide easy yearly stats)
   const totalPRs = Math.floor(totalCommits * 0.3);
@@ -1014,7 +1356,8 @@ export async function fetchPublicGitHubStats(
           repo.full_name,
           username,
           startDateStr,
-          endDateStr
+          endDateStr,
+          (repo as any).fork || false // Pass fork status
         );
         totalCommits += commits;
         reposWithCommits.push({
@@ -1052,74 +1395,75 @@ export async function fetchPublicGitHubStats(
     }
   });
 
-  // Fetch commit dates for timeline (sample from top repos to avoid too many API calls)
+  // Fetch commit dates for timeline from ALL repos with commits
+  // This ensures accurate timeline representation
   const allCommitDates: Date[] = [];
-  const topReposForTimeline = reposWithCommits
-    .filter(r => (r.commits_count || 0) > 0)
-    .sort((a, b) => (b.commits_count || 0) - (a.commits_count || 0))
-    .slice(0, Math.min(10, reposWithCommits.length)); // Sample top 10 repos for public API
-
-  console.log(`Fetching commit dates from ${topReposForTimeline.length} repos for timeline...`);
+  const reposWithCommitsForTimeline = reposWithCommits.filter(r => (r.commits_count || 0) > 0);
   
-  for (const repo of topReposForTimeline) {
-    try {
-      const dates = await fetchPublicCommitsWithDatesFromRepo(
-        repo.full_name,
-        username,
-        startDateStr,
-        endDateStr
-      );
-      allCommitDates.push(...dates);
-      
-      // Delay between requests for unauthenticated API
-      await new Promise(resolve => setTimeout(resolve, 200));
-    } catch (error) {
-      console.error(`Error fetching commit dates for ${repo.full_name}:`, error);
+  console.log(`Fetching commit dates from ${reposWithCommitsForTimeline.length} repos for timeline...`);
+  
+  // Process repos in batches to get commit dates (smaller batches for public API)
+  const timelineBatchSize = 5;
+  for (let i = 0; i < reposWithCommitsForTimeline.length; i += timelineBatchSize) {
+    const batch = reposWithCommitsForTimeline.slice(i, i + timelineBatchSize);
+    
+    // Process sequentially for public API to avoid rate limits
+    for (const repo of batch) {
+      try {
+        const dates = await fetchPublicCommitsWithDatesFromRepo(
+          repo.full_name,
+          username,
+          startDateStr,
+          endDateStr,
+          (repo as any).fork || false // Pass fork status
+        );
+        allCommitDates.push(...dates);
+        
+        // Delay between requests for unauthenticated API
+        await new Promise(resolve => setTimeout(resolve, 200));
+      } catch (error) {
+        console.error(`Error fetching commit dates for ${repo.full_name}:`, error);
+      }
     }
   }
 
-  // Group commits by month
+  console.log(`Fetched ${allCommitDates.length} commit dates for timeline`);
+
+  // Filter commit dates to ensure they're within the date range
+  const filteredCommitDates = allCommitDates.filter((date) => {
+    return date >= startDate && date <= endDate;
+  });
+
+  // Group commits by month based on actual date range (startDate to endDate)
   const monthCounts: Record<string, number> = {};
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   
-  allCommitDates.forEach((date) => {
+  filteredCommitDates.forEach((date) => {
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
   });
 
-  // Generate timeline for last 365 days (only months that have passed or current month)
-  const today = new Date();
+  // Generate timeline from startDate to endDate (last 365 days)
   const commitTimeline: { month: string; commits: number }[] = [];
   
-  // Start from 12 months ago and go to current month
-  for (let i = 11; i >= 0; i--) {
-    const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-    // Only include months that are in the past or current month (not future months)
-    // Check if the month is before or equal to current month in the same year, or in a previous year
-    const isPastOrCurrentMonth = 
-      (date.getFullYear() < today.getFullYear()) ||
-      (date.getFullYear() === today.getFullYear() && date.getMonth() <= today.getMonth());
+  // Start from startDate and go month by month until endDate
+  const currentMonth = new Date(startDate);
+  currentMonth.setDate(1); // Start of the month
+  
+  while (currentMonth <= endDate) {
+    const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+    const monthName = monthNames[currentMonth.getMonth()];
     
-    if (isPastOrCurrentMonth) {
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const monthName = monthNames[date.getMonth()];
-      commitTimeline.push({
-        month: monthName,
-        commits: monthCounts[monthKey] || 0,
-      });
-    }
+    commitTimeline.push({
+      month: monthName,
+      commits: monthCounts[monthKey] || 0,
+    });
+    
+    // Move to next month
+    currentMonth.setMonth(currentMonth.getMonth() + 1);
   }
 
-  // Scale up the timeline to match total commits (if we sampled repos)
-  if (topReposForTimeline.length < reposWithCommits.length && totalCommits > 0) {
-    const sampledCommits = allCommitDates.length;
-    if (sampledCommits > 0) {
-      const scaleFactor = totalCommits / sampledCommits;
-      commitTimeline.forEach((item) => {
-        item.commits = Math.round(item.commits * scaleFactor);
-      });
-    }
-  }
+  console.log(`Timeline generated with ${commitTimeline.length} months, total commits: ${filteredCommitDates.length}`);
 
   // Estimate PRs and Issues (GitHub API doesn't provide easy yearly stats for public data)
   const totalPRs = Math.floor(totalCommits * 0.25); // Lower estimate for public data

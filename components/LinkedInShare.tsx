@@ -12,6 +12,7 @@ interface LinkedInShareProps {
   stars?: number;
   prs?: number;
   repos?: number;
+  blog?: string;
 }
 
 export function LinkedInShare({ 
@@ -22,6 +23,7 @@ export function LinkedInShare({
   stars = 0,
   prs = 0,
   repos = 0,
+  blog,
 }: LinkedInShareProps) {
   const [generating, setGenerating] = useState(false);
   const currentUrl = typeof window !== "undefined" 
@@ -34,27 +36,31 @@ export function LinkedInShare({
 
   const ogImageUrl = `${baseUrl}/api/og-image?username=${encodeURIComponent(username)}&commits=${commits}&level=${encodeURIComponent(level)}&levelEmoji=${encodeURIComponent(levelEmoji)}&stars=${stars}&prs=${prs}&repos=${repos}`;
 
-  const shareText = `🚀 Just unlocked "${level}" level on GitHub Unwrapped 2025! 
+  const shareText = `🎉 Reflecting on my coding journey in 2025!
 
-📊 Stats:
-• ${commits.toLocaleString()} commits this year
-• ${stars.toLocaleString()} stars received
-• ${prs.toLocaleString()} pull requests
-• Level: ${level} ${levelEmoji}
+I'm excited to share my GitHub Unwrapped stats for this year. It's been an incredible journey of building, learning, and contributing to open source.
 
-Check out your GitHub Year in Code! 🎉
+📊 My GitHub Highlights:
+✨ ${commits.toLocaleString()} commits
+⭐ ${stars.toLocaleString()} stars received
+🔀 ${prs.toLocaleString()} pull requests
+🏆 Achieved: ${level} ${levelEmoji}
 
-${currentUrl}`;
+Every commit tells a story, and I'm grateful for the opportunities to collaborate, learn, and grow as a developer. Here's to another year of coding with purpose! 💻
 
-  const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(currentUrl)}`;
+Check out your own GitHub Year in Code:
+${currentUrl}${blog ? `\n\n🌐 Visit my website: ${blog}` : ''}`;
 
   const handleShare = () => {
-    // Open LinkedIn share dialog
-    // LinkedIn will automatically fetch the OG image from the URL
+    // Use LinkedIn's feed URL with text parameter to automatically fill the post
+    // This will open LinkedIn with the text pre-filled in the compose modal
+    const linkedInUrl = `https://www.linkedin.com/feed/?shareActive&mini=true&text=${encodeURIComponent(shareText)}`;
+    
+    // Open LinkedIn in a new window/tab
     window.open(
       linkedInUrl,
-      "LinkedIn Share",
-      "width=600,height=400,scrollbars=yes,resizable=yes"
+      "_blank",
+      "width=600,height=700,scrollbars=yes,resizable=yes"
     );
   };
 

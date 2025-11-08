@@ -21,7 +21,9 @@ export async function GET(request: NextRequest) {
     const user = await fetchGitHubUser(token);
     const stats = await fetchGitHubStats(token, user.login);
 
-    return NextResponse.json({ user, stats });
+    // Return user without sensitive email data
+    const { emails, ...userWithoutEmails } = user;
+    return NextResponse.json({ user: userWithoutEmails, stats });
   } catch (error) {
     console.error("Error fetching GitHub stats:", error);
     return NextResponse.json(

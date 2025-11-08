@@ -230,6 +230,7 @@ function DashboardContent() {
                   stars={stats.totalStars}
                   prs={stats.totalPRs}
                   repos={stats.topRepos.length}
+                  blog={user.blog}
                 />
               </div>
             </div>

@@ -139,15 +139,18 @@ export default function TokenPage() {
             </form>
 
             <div className="mt-6 space-y-3">
-              <div className="p-4 retro-border-blue bg-black/50">
-                <p className="retro-text text-xs text-[#60a5fa] mb-2">
-                  <strong className="text-[#3b82f6]">REQUIRED SCOPES:</strong>
+              <div className="p-4 retro-border theme-card-bg">
+                <p className="retro-text text-xs theme-text-primary mb-2">
+                  <strong className="theme-text-accent">REQUIRED PERMISSIONS:</strong>
                 </p>
-                <ul className="retro-text text-xs text-[#60a5fa] list-disc list-inside space-y-1">
-                  <li>PUBLIC_REPO (FOR PUBLIC REPOSITORIES)</li>
-                  <li>REPO (FOR PRIVATE REPOSITORIES)</li>
-                  <li>READ:USER (FOR USER INFORMATION)</li>
+                <ul className="retro-text text-xs theme-text-secondary list-disc list-inside space-y-1">
+                  <li><strong className="theme-text-primary">repo</strong> - Access to private repositories and commit data</li>
+                  <li><strong className="theme-text-primary">read:user</strong> - Read user profile information</li>
+                  <li><strong className="theme-text-primary">user:email</strong> - Access to email addresses (for accurate commit counting)</li>
                 </ul>
+                <p className="retro-text text-xs theme-text-secondary mt-3">
+                  <strong className="theme-text-primary">NOTE:</strong> Without <strong>user:email</strong> permission, commit counts may be inaccurate because GitHub counts contributions based on email addresses associated with your account.
+                </p>
               </div>
               <div className="p-4 retro-border-amber bg-black/50">
                 <p className="retro-text text-xs text-[#fcd34d]">
