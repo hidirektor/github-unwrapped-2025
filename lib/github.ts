@@ -78,12 +78,15 @@ export async function fetchUserRepos(
   username: string
 ): Promise<GitHubRepo[]> {
   const repos: GitHubRepo[] = [];
+  const seenRepos = new Set<string>(); // Track repos to avoid duplicates
   let page = 1;
   const perPage = 100;
 
+  // Fetch all repos with all affiliations (owner, collaborator, organization_member)
+  // This includes repos from organizations the user is a member of
   while (true) {
     const response = await fetch(
-      `https://api.github.com/user/repos?per_page=${perPage}&page=${page}&sort=updated&affiliation=owner,collaborator`,
+      `https://api.github.com/user/repos?per_page=${perPage}&page=${page}&sort=updated&affiliation=owner,collaborator,organization_member`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -99,18 +102,27 @@ export async function fetchUserRepos(
     const data = await response.json();
     if (data.length === 0) break;
 
-    // Map to include all necessary fields
-    const mappedRepos = data.map((repo: any) => ({
-      id: repo.id,
-      name: repo.name,
-      full_name: repo.full_name,
-      description: repo.description,
-      stargazers_count: repo.stargazers_count,
-      forks_count: repo.forks_count,
-      language: repo.language,
-      updated_at: repo.updated_at,
-      html_url: repo.html_url,
-    }));
+    // Map to include all necessary fields and filter duplicates
+    const mappedRepos = data
+      .map((repo: any) => ({
+        id: repo.id,
+        name: repo.name,
+        full_name: repo.full_name,
+        description: repo.description,
+        stargazers_count: repo.stargazers_count,
+        forks_count: repo.forks_count,
+        language: repo.language,
+        updated_at: repo.updated_at,
+        html_url: repo.html_url,
+      }))
+      .filter((repo: GitHubRepo) => {
+        // Avoid duplicate repos
+        if (seenRepos.has(repo.full_name)) {
+          return false;
+        }
+        seenRepos.add(repo.full_name);
+        return true;
+      });
 
     repos.push(...mappedRepos);
     page++;
@@ -118,6 +130,78 @@ export async function fetchUserRepos(
     if (data.length < perPage) break;
   }
 
+  // Also fetch repos from organizations the user is a member of
+  try {
+    const orgsResponse = await fetch("https://api.github.com/user/orgs", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+
+    if (orgsResponse.ok) {
+      const orgs = await orgsResponse.json();
+      console.log(`Found ${orgs.length} organizations`);
+
+      // Fetch repos from each organization
+      for (const org of orgs) {
+        let orgPage = 1;
+        while (true) {
+          try {
+            const orgReposResponse = await fetch(
+              `https://api.github.com/orgs/${org.login}/repos?per_page=${perPage}&page=${orgPage}&type=all`,
+              {
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  Accept: "application/vnd.github.v3+json",
+                },
+              }
+            );
+
+            if (!orgReposResponse.ok) {
+              break;
+            }
+
+            const orgRepos = await orgReposResponse.json();
+            if (orgRepos.length === 0) break;
+
+            // Add organization repos that aren't already in the list
+            const newOrgRepos = orgRepos
+              .map((repo: any) => ({
+                id: repo.id,
+                name: repo.name,
+                full_name: repo.full_name,
+                description: repo.description,
+                stargazers_count: repo.stargazers_count,
+                forks_count: repo.forks_count,
+                language: repo.language,
+                updated_at: repo.updated_at,
+                html_url: repo.html_url,
+              }))
+              .filter((repo: GitHubRepo) => {
+                if (seenRepos.has(repo.full_name)) {
+                  return false;
+                }
+                seenRepos.add(repo.full_name);
+                return true;
+              });
+
+            repos.push(...newOrgRepos);
+            orgPage++;
+
+            if (orgRepos.length < perPage) break;
+          } catch (error) {
+            console.error(`Error fetching repos for org ${org.login}:`, error);
+            break;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.log("Could not fetch organization repos (this is optional):", error);
+  }
+
+  console.log(`Total repositories found (including orgs): ${repos.length}`);
   return repos;
 }
 
@@ -676,13 +760,21 @@ export async function fetchGitHubStats(
 ): Promise<GitHubStats> {
   const repos = await fetchUserRepos(accessToken, username);
   
-  // Calculate last 365 days from today
+  // Calculate last 365 days from TODAY (request time)
+  // endDate = today (current date/time when request is made)
+  // startDate = 365 days before today
   const endDate = new Date();
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 365);
+  endDate.setHours(23, 59, 59, 999); // End of today
+  
+  // Calculate startDate as 365 days before endDate (more accurate than setDate)
+  const startDate = new Date(endDate);
+  startDate.setTime(startDate.getTime() - (365 * 24 * 60 * 60 * 1000));
+  startDate.setHours(0, 0, 0, 0); // Start of that day
   
   const startDateStr = startDate.toISOString();
   const endDateStr = endDate.toISOString();
+  
+  console.log(`Date range: ${startDateStr} to ${endDateStr} (365 days)`);
   
   console.log(`Processing ${repos.length} repositories for commit counts...`);
   
@@ -885,13 +977,21 @@ export async function fetchPublicGitHubStats(
 ): Promise<GitHubStats> {
   const repos = await fetchPublicRepos(username);
   
-  // Calculate last 365 days from today
+  // Calculate last 365 days from TODAY (request time)
+  // endDate = today (current date/time when request is made)
+  // startDate = 365 days before today
   const endDate = new Date();
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 365);
+  endDate.setHours(23, 59, 59, 999); // End of today
+  
+  // Calculate startDate as 365 days before endDate (more accurate than setDate)
+  const startDate = new Date(endDate);
+  startDate.setTime(startDate.getTime() - (365 * 24 * 60 * 60 * 1000));
+  startDate.setHours(0, 0, 0, 0); // Start of that day
   
   const startDateStr = startDate.toISOString();
   const endDateStr = endDate.toISOString();
+  
+  console.log(`Date range: ${startDateStr} to ${endDateStr} (365 days)`);
   
   console.log(`Processing ${repos.length} public repositories for commit counts...`);
   
