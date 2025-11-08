@@ -203,6 +203,86 @@ async function fetchAllCommitsFromRepo(
   return totalCommits;
 }
 
+// Fetch commits with dates for timeline generation
+async function fetchCommitsWithDatesFromRepo(
+  accessToken: string,
+  repoFullName: string,
+  username: string,
+  startDate: string,
+  endDate: string
+): Promise<Date[]> {
+  const commitDates: Date[] = [];
+  let page = 1;
+  const perPage = 100;
+
+  while (true) {
+    try {
+      let response = await fetch(
+        `https://api.github.com/repos/${repoFullName}/commits?since=${startDate}&until=${endDate}&author=${username}&per_page=${perPage}&page=${page}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+        }
+      );
+
+      if (!response.ok && response.status === 404) {
+        response = await fetch(
+          `https://api.github.com/repos/${repoFullName}/commits?since=${startDate}&until=${endDate}&per_page=${perPage}&page=${page}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          }
+        );
+      }
+
+      if (!response.ok) {
+        if (response.status === 403 || response.status === 404) {
+          break;
+        }
+        throw new Error(`Failed to fetch commits: ${response.status}`);
+      }
+
+      const commits = await response.json();
+      
+      if (commits.length === 0) {
+        break;
+      }
+
+      const userCommits = commits.filter((commit: any) => {
+        const authorLogin = commit.author?.login?.toLowerCase();
+        const committerLogin = commit.committer?.login?.toLowerCase();
+        const userLower = username.toLowerCase();
+        return authorLogin === userLower || committerLogin === userLower;
+      });
+
+      // Extract commit dates
+      userCommits.forEach((commit: any) => {
+        if (commit.commit?.author?.date) {
+          commitDates.push(new Date(commit.commit.author.date));
+        }
+      });
+
+      const linkHeader = response.headers.get("link");
+      const hasNextPage = linkHeader?.includes('rel="next"');
+
+      if (!hasNextPage || commits.length < perPage) {
+        break;
+      }
+
+      page++;
+    } catch (error) {
+      console.error(`Error fetching commits for ${repoFullName} page ${page}:`, error);
+      break;
+    }
+  }
+
+  return commitDates;
+}
+
 export async function fetchYearlyCommits(
   accessToken: string,
   username: string,
@@ -466,6 +546,82 @@ async function fetchAllPublicCommitsFromRepo(
   return totalCommits;
 }
 
+// Fetch public commits with dates for timeline generation
+async function fetchPublicCommitsWithDatesFromRepo(
+  repoFullName: string,
+  username: string,
+  startDate: string,
+  endDate: string
+): Promise<Date[]> {
+  const commitDates: Date[] = [];
+  let page = 1;
+  const perPage = 100;
+
+  while (true) {
+    try {
+      let response = await fetch(
+        `https://api.github.com/repos/${repoFullName}/commits?since=${startDate}&until=${endDate}&author=${username}&per_page=${perPage}&page=${page}`,
+        {
+          headers: {
+            Accept: "application/vnd.github.v3+json",
+          },
+        }
+      );
+
+      if (!response.ok && response.status === 404) {
+        response = await fetch(
+          `https://api.github.com/repos/${repoFullName}/commits?since=${startDate}&until=${endDate}&per_page=${perPage}&page=${page}`,
+          {
+            headers: {
+              Accept: "application/vnd.github.v3+json",
+            },
+          }
+        );
+      }
+
+      if (!response.ok) {
+        if (response.status === 403 || response.status === 404) {
+          break;
+        }
+        throw new Error(`Failed to fetch commits: ${response.status}`);
+      }
+
+      const commits = await response.json();
+      
+      if (commits.length === 0) {
+        break;
+      }
+
+      const userCommits = commits.filter((commit: any) => {
+        const authorLogin = commit.author?.login?.toLowerCase();
+        const committerLogin = commit.committer?.login?.toLowerCase();
+        const userLower = username.toLowerCase();
+        return authorLogin === userLower || committerLogin === userLower;
+      });
+
+      userCommits.forEach((commit: any) => {
+        if (commit.commit?.author?.date) {
+          commitDates.push(new Date(commit.commit.author.date));
+        }
+      });
+
+      const linkHeader = response.headers.get("link");
+      const hasNextPage = linkHeader?.includes('rel="next"');
+
+      if (!hasNextPage || commits.length < perPage) {
+        break;
+      }
+
+      page++;
+    } catch (error) {
+      console.error(`Error fetching commits for ${repoFullName} page ${page}:`, error);
+      break;
+    }
+  }
+
+  return commitDates;
+}
+
 export async function fetchPublicYearlyCommits(
   username: string,
   year: number = 2025
@@ -633,15 +789,75 @@ export async function fetchGitHubStats(
     }
   });
 
-  // Create commit timeline (mock data based on total commits)
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-  ];
-  const commitTimeline = months.map((month) => ({
-    month,
-    commits: Math.floor(totalCommits / 12) + Math.floor(Math.random() * (totalCommits / 6)),
-  }));
+  // Fetch commit dates for timeline (sample from top repos to avoid too many API calls)
+  const allCommitDates: Date[] = [];
+  const topReposForTimeline = reposWithCommits
+    .filter(r => (r.commits_count || 0) > 0)
+    .sort((a, b) => (b.commits_count || 0) - (a.commits_count || 0))
+    .slice(0, Math.min(20, reposWithCommits.length)); // Sample top 20 repos
+
+  console.log(`Fetching commit dates from ${topReposForTimeline.length} repos for timeline...`);
+  
+  for (const repo of topReposForTimeline) {
+    try {
+      const dates = await fetchCommitsWithDatesFromRepo(
+        accessToken,
+        repo.full_name,
+        username,
+        startDateStr,
+        endDateStr
+      );
+      allCommitDates.push(...dates);
+      
+      // Small delay to avoid rate limits
+      await new Promise(resolve => setTimeout(resolve, 50));
+    } catch (error) {
+      console.error(`Error fetching commit dates for ${repo.full_name}:`, error);
+    }
+  }
+
+  // Group commits by month
+  const monthCounts: Record<string, number> = {};
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  
+  allCommitDates.forEach((date) => {
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
+  });
+
+  // Generate timeline for last 365 days (only months that have passed or current month)
+  const today = new Date();
+  const commitTimeline: { month: string; commits: number }[] = [];
+  
+  // Start from 12 months ago and go to current month
+  for (let i = 11; i >= 0; i--) {
+    const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    // Only include months that are in the past or current month (not future months)
+    // Check if the month is before or equal to current month in the same year, or in a previous year
+    const isPastOrCurrentMonth = 
+      (date.getFullYear() < today.getFullYear()) ||
+      (date.getFullYear() === today.getFullYear() && date.getMonth() <= today.getMonth());
+    
+    if (isPastOrCurrentMonth) {
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthName = monthNames[date.getMonth()];
+      commitTimeline.push({
+        month: monthName,
+        commits: monthCounts[monthKey] || 0,
+      });
+    }
+  }
+
+  // Scale up the timeline to match total commits (if we sampled repos)
+  if (topReposForTimeline.length < reposWithCommits.length && totalCommits > 0) {
+    const sampledCommits = allCommitDates.length;
+    if (sampledCommits > 0) {
+      const scaleFactor = totalCommits / sampledCommits;
+      commitTimeline.forEach((item) => {
+        item.commits = Math.round(item.commits * scaleFactor);
+      });
+    }
+  }
 
   // Estimate PRs and Issues (GitHub API doesn't provide easy yearly stats)
   const totalPRs = Math.floor(totalCommits * 0.3);
@@ -736,15 +952,74 @@ export async function fetchPublicGitHubStats(
     }
   });
 
-  // Create commit timeline
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-  ];
-  const commitTimeline = months.map((month) => ({
-    month,
-    commits: Math.floor(totalCommits / 12) + Math.floor(Math.random() * (totalCommits / 6)),
-  }));
+  // Fetch commit dates for timeline (sample from top repos to avoid too many API calls)
+  const allCommitDates: Date[] = [];
+  const topReposForTimeline = reposWithCommits
+    .filter(r => (r.commits_count || 0) > 0)
+    .sort((a, b) => (b.commits_count || 0) - (a.commits_count || 0))
+    .slice(0, Math.min(10, reposWithCommits.length)); // Sample top 10 repos for public API
+
+  console.log(`Fetching commit dates from ${topReposForTimeline.length} repos for timeline...`);
+  
+  for (const repo of topReposForTimeline) {
+    try {
+      const dates = await fetchPublicCommitsWithDatesFromRepo(
+        repo.full_name,
+        username,
+        startDateStr,
+        endDateStr
+      );
+      allCommitDates.push(...dates);
+      
+      // Delay between requests for unauthenticated API
+      await new Promise(resolve => setTimeout(resolve, 200));
+    } catch (error) {
+      console.error(`Error fetching commit dates for ${repo.full_name}:`, error);
+    }
+  }
+
+  // Group commits by month
+  const monthCounts: Record<string, number> = {};
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  
+  allCommitDates.forEach((date) => {
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
+  });
+
+  // Generate timeline for last 365 days (only months that have passed or current month)
+  const today = new Date();
+  const commitTimeline: { month: string; commits: number }[] = [];
+  
+  // Start from 12 months ago and go to current month
+  for (let i = 11; i >= 0; i--) {
+    const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    // Only include months that are in the past or current month (not future months)
+    // Check if the month is before or equal to current month in the same year, or in a previous year
+    const isPastOrCurrentMonth = 
+      (date.getFullYear() < today.getFullYear()) ||
+      (date.getFullYear() === today.getFullYear() && date.getMonth() <= today.getMonth());
+    
+    if (isPastOrCurrentMonth) {
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthName = monthNames[date.getMonth()];
+      commitTimeline.push({
+        month: monthName,
+        commits: monthCounts[monthKey] || 0,
+      });
+    }
+  }
+
+  // Scale up the timeline to match total commits (if we sampled repos)
+  if (topReposForTimeline.length < reposWithCommits.length && totalCommits > 0) {
+    const sampledCommits = allCommitDates.length;
+    if (sampledCommits > 0) {
+      const scaleFactor = totalCommits / sampledCommits;
+      commitTimeline.forEach((item) => {
+        item.commits = Math.round(item.commits * scaleFactor);
+      });
+    }
+  }
 
   // Estimate PRs and Issues (GitHub API doesn't provide easy yearly stats for public data)
   const totalPRs = Math.floor(totalCommits * 0.25); // Lower estimate for public data
