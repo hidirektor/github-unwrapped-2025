@@ -2,12 +2,9 @@
 
 import {useMemo, useState} from "react";
 import {motion} from "framer-motion";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {Button} from "@/components/ui/button";
 import {GitHubRepo} from "@/lib/github";
-import {ExternalLink, GitCommit, GitFork, GitPullRequest, Pin, Star} from "lucide-react";
+import {ExternalLink, Pin} from "lucide-react";
 import Link from "next/link";
-import {cn} from "@/lib/utils";
 
 interface TopReposProps {
   repos: GitHubRepo[];
@@ -25,26 +22,36 @@ export function TopRepos({ repos }: TopReposProps) {
     
     let sorted: GitHubRepo[];
     
+    // Stable sort function helper
+    const stableSort = (compareFn: (a: GitHubRepo, b: GitHubRepo) => number) => {
+      return reposCopy.sort((a, b) => {
+        const result = compareFn(a, b);
+        // If values are equal, sort by id to maintain stability
+        return result !== 0 ? result : a.id - b.id;
+      });
+    };
+    
     switch (sortBy) {
       case "stars":
-        sorted = reposCopy.sort((a, b) => (b.stargazers_count || 0) - (a.stargazers_count || 0));
+        sorted = stableSort((a, b) => (b.stargazers_count || 0) - (a.stargazers_count || 0));
         break;
       case "forks":
-        sorted = reposCopy.sort((a, b) => (b.forks_count || 0) - (a.forks_count || 0));
+        sorted = stableSort((a, b) => (b.forks_count || 0) - (a.forks_count || 0));
         break;
       case "prs":
-        sorted = reposCopy.sort((a, b) => (b.prs_count || 0) - (a.prs_count || 0));
+        sorted = stableSort((a, b) => (b.prs_count || 0) - (a.prs_count || 0));
         break;
       case "pinned":
-        sorted = reposCopy.sort((a, b) => {
+        sorted = stableSort((a, b) => {
           if (a.is_pinned && !b.is_pinned) return -1;
           if (!a.is_pinned && b.is_pinned) return 1;
+          // If both pinned or both not pinned, sort by commits
           return (b.commits_count || 0) - (a.commits_count || 0);
         });
         break;
       case "commits":
       default:
-        sorted = reposCopy.sort((a, b) => (b.commits_count || 0) - (a.commits_count || 0));
+        sorted = stableSort((a, b) => (b.commits_count || 0) - (a.commits_count || 0));
         break;
     }
     
@@ -52,11 +59,11 @@ export function TopRepos({ repos }: TopReposProps) {
   }, [repos, sortBy]);
 
   const sortButtons = [
-    { type: "commits" as SortType, label: "Based on Commit", icon: GitCommit },
-    { type: "stars" as SortType, label: "Based on Star", icon: Star },
-    { type: "forks" as SortType, label: "Based on Fork", icon: GitFork },
-    { type: "prs" as SortType, label: "Based on PR", icon: GitPullRequest },
-    { type: "pinned" as SortType, label: "Based on Pinned Repositories", icon: Pin },
+    { type: "commits" as SortType, label: "BASED ON COMMIT" },
+    { type: "stars" as SortType, label: "BASED ON STAR" },
+    { type: "forks" as SortType, label: "BASED ON FORK" },
+    { type: "prs" as SortType, label: "BASED ON PR" },
+    { type: "pinned" as SortType, label: "BASED ON PINNED REPOSITORIES" },
   ];
 
   return (
@@ -65,87 +72,84 @@ export function TopRepos({ repos }: TopReposProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4, type: "spring", stiffness: 100 }}
     >
-      <Card className="glass">
-        <CardHeader>
-          <CardTitle>Top Repositories</CardTitle>
-          <div className="flex flex-wrap gap-2 mt-4">
-            {sortButtons.map(({ type, label, icon: Icon }) => (
-              <Button
-                key={type}
-                variant={sortBy === type ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSortBy(type)}
-                className={cn(
-                  "text-xs",
-                  sortBy === type
-                    ? "bg-purple-600 hover:bg-purple-700"
-                    : "glass border-purple-500/30 text-white hover:bg-white/10"
-                )}
-              >
-                <Icon className="h-3 w-3 mr-1" />
-                {label}
-              </Button>
-            ))}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {sortedRepos.map((repo, index) => (
+      <div className="retro-border bg-black/70 p-6">
+        <h3 className="pixel-text text-lg font-bold mb-4 text-[#a855f7]">
+          TOP REPOSITORIES
+        </h3>
+        <div className="flex flex-wrap gap-2 mb-6">
+          {sortButtons.map(({ type, label }) => (
+            <button
+              key={type}
+              onClick={() => setSortBy(type)}
+              className={`px-3 py-2 text-xs pixel-text transition-all ${
+                sortBy === type
+                  ? "retro-border-blue bg-black/70 text-[#60a5fa] border-[#3b82f6]"
+                  : "retro-border bg-black/30 text-[#c084fc] hover:border-[#a855f7] hover:bg-black/50 hover:text-[#a855f7]"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="space-y-3">
+          {sortedRepos.length === 0 ? (
+            <div className="retro-text text-center text-[#60a5fa] py-8">
+              NO REPOSITORIES FOUND
+            </div>
+          ) : (
+            sortedRepos.map((repo, index) => (
               <motion.div
-                key={repo.id}
+                key={`${repo.id}-${sortBy}`}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 + index * 0.1 }}
+                transition={{ delay: index * 0.05, duration: 0.3 }}
               >
                 <Link
                   href={repo.html_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between p-4 rounded-lg glass hover:bg-white/10 transition-colors group"
+                  className="flex items-center justify-between p-4 retro-border bg-black/40 hover:bg-black/60 hover:border-[#a855f7] transition-all group"
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-semibold group-hover:text-primary transition-colors">
-                        {repo.name}
-                      </h4>
-                      {repo.is_pinned && (
-                        <Pin className="h-4 w-4 text-yellow-400" fill="currentColor" />
-                      )}
-                    </div>
-                    {repo.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
-                        {repo.description}
-                      </p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="pixel-text text-sm font-bold text-[#a855f7] group-hover:text-[#c084fc] transition-colors">
+                      {repo.name.toUpperCase()}
+                    </h4>
+                    {repo.is_pinned && (
+                      <Pin className="h-4 w-4 text-[#fbbf24]" fill="#fbbf24" />
                     )}
-                    <div className="flex items-center gap-4 mt-2">
-                      {repo.language && (
-                        <span className="text-xs text-muted-foreground">
-                          {repo.language}
-                        </span>
-                      )}
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <GitCommit className="h-3 w-3" />
-                        {repo.commits_count?.toLocaleString() || 0}
-                      </div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Star className="h-3 w-3" />
-                        {repo.stargazers_count}
-                      </div>
-                      {repo.forks_count !== undefined && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <GitFork className="h-3 w-3" />
-                          {repo.forks_count}
-                        </div>
-                      )}
-                    </div>
                   </div>
-                  <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  {repo.description && (
+                    <p className="retro-text text-xs text-[#60a5fa] mb-3 line-clamp-1">
+                      {repo.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {repo.language && (
+                      <span className="retro-text text-xs text-[#c084fc] retro-border px-2 py-1 bg-black/30">
+                        {repo.language}
+                      </span>
+                    )}
+                    <span className="retro-text text-xs text-[#60a5fa]">
+                      COMMITS: <span className="pixel-text text-[#a855f7]">{repo.commits_count?.toLocaleString() || 0}</span>
+                    </span>
+                    <span className="retro-text text-xs text-[#60a5fa]">
+                      STARS: <span className="pixel-text text-[#a855f7]">{repo.stargazers_count || 0}</span>
+                    </span>
+                    {repo.forks_count !== undefined && (
+                      <span className="retro-text text-xs text-[#60a5fa]">
+                        FORKS: <span className="pixel-text text-[#a855f7]">{repo.forks_count}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <ExternalLink className="h-4 w-4 text-[#60a5fa] group-hover:text-[#a855f7] transition-colors ml-4 flex-shrink-0" />
                 </Link>
               </motion.div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            ))
+          )}
+        </div>
+      </div>
     </motion.div>
   );
 }

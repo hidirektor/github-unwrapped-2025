@@ -580,11 +580,50 @@ export async function fetchGitHubStats(
     }
   }
   
-  // Get top repos - include all repos for different sorting options
-  // Default sort by commits, but user can change in UI
-  const topRepos = reposWithCommits
-    .sort((a, b) => (b.commits_count || 0) - (a.commits_count || 0))
-    .slice(0, 10);
+  // Fetch pinned repositories using GraphQL API
+  let pinnedRepos: string[] = [];
+  try {
+    const graphqlResponse = await fetch("https://api.github.com/graphql", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: `
+          query {
+            user(login: "${username}") {
+              pinnedItems(first: 6, types: REPOSITORY) {
+                nodes {
+                  ... on Repository {
+                    nameWithOwner
+                  }
+                }
+              }
+            }
+          }
+        `,
+      }),
+    });
+
+    if (graphqlResponse.ok) {
+      const graphqlData = await graphqlResponse.json();
+      if (graphqlData.data?.user?.pinnedItems?.nodes) {
+        pinnedRepos = graphqlData.data.user.pinnedItems.nodes.map(
+          (node: any) => node.nameWithOwner
+        );
+      }
+    }
+  } catch (error) {
+    console.log("Could not fetch pinned repos (this is optional):", error);
+  }
+
+  // Mark pinned repos and include all repos for different sorting options
+  // Frontend will handle sorting based on user selection
+  const topRepos = reposWithCommits.map((repo) => ({
+    ...repo,
+    is_pinned: pinnedRepos.includes(repo.full_name),
+  }));
 
   // Count languages
   const languages: Record<string, number> = {};
@@ -681,10 +720,13 @@ export async function fetchPublicGitHubStats(
     }
   }
   
-  // Get top repos by commit count (not stars)
-  const topRepos = reposWithCommits
-    .sort((a, b) => (b.commits_count || 0) - (a.commits_count || 0))
-    .slice(0, 10);
+  // Include all repos for different sorting options
+  // Frontend will handle sorting based on user selection
+  // Public API doesn't support pinned repos, so set is_pinned to false
+  const topRepos = reposWithCommits.map((repo) => ({
+    ...repo,
+    is_pinned: false,
+  }));
 
   // Count languages
   const languages: Record<string, number> = {};
