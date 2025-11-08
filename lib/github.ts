@@ -6,6 +6,9 @@ export interface GitHubUser {
   public_repos: number;
   followers: number;
   following: number;
+  location?: string;
+  company?: string;
+  blog?: string;
 }
 
 export interface GitHubRepo {
@@ -14,10 +17,13 @@ export interface GitHubRepo {
   full_name: string;
   description: string;
   stargazers_count: number;
+  forks_count?: number;
   language: string;
   updated_at: string;
   html_url: string;
   commits_count?: number; // Number of commits in the year
+  prs_count?: number; // Number of PRs (estimated)
+  is_pinned?: boolean; // Whether repo is pinned
 }
 
 export interface GitHubStats {
@@ -93,7 +99,20 @@ export async function fetchUserRepos(
     const data = await response.json();
     if (data.length === 0) break;
 
-    repos.push(...data);
+    // Map to include all necessary fields
+    const mappedRepos = data.map((repo: any) => ({
+      id: repo.id,
+      name: repo.name,
+      full_name: repo.full_name,
+      description: repo.description,
+      stargazers_count: repo.stargazers_count,
+      forks_count: repo.forks_count,
+      language: repo.language,
+      updated_at: repo.updated_at,
+      html_url: repo.html_url,
+    }));
+
+    repos.push(...mappedRepos);
     page++;
 
     if (data.length < perPage) break;
@@ -350,7 +369,20 @@ export async function fetchPublicRepos(username: string): Promise<GitHubRepo[]> 
     const data = await response.json();
     if (data.length === 0) break;
 
-    repos.push(...data);
+    // Map to include all necessary fields
+    const mappedRepos = data.map((repo: any) => ({
+      id: repo.id,
+      name: repo.name,
+      full_name: repo.full_name,
+      description: repo.description,
+      stargazers_count: repo.stargazers_count,
+      forks_count: repo.forks_count,
+      language: repo.language,
+      updated_at: repo.updated_at,
+      html_url: repo.html_url,
+    }));
+
+    repos.push(...mappedRepos);
     page++;
 
     if (data.length < perPage) break;
@@ -484,11 +516,17 @@ export async function fetchPublicYearlyCommits(
 export async function fetchGitHubStats(
   accessToken: string,
   username: string,
-  year: number = 2025
+  year?: number
 ): Promise<GitHubStats> {
   const repos = await fetchUserRepos(accessToken, username);
-  const startDate = `${year}-01-01T00:00:00Z`;
-  const endDate = `${year}-12-31T23:59:59Z`;
+  
+  // Calculate last 365 days from today
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - 365);
+  
+  const startDateStr = startDate.toISOString();
+  const endDateStr = endDate.toISOString();
   
   console.log(`Processing ${repos.length} repositories for commit counts...`);
   
@@ -511,8 +549,8 @@ export async function fetchGitHubStats(
           accessToken,
           repo.full_name,
           username,
-          startDate,
-          endDate
+          startDateStr,
+          endDateStr
         );
         totalCommits += commits;
         if (commits > 0) {
@@ -521,12 +559,14 @@ export async function fetchGitHubStats(
         return {
           ...repo,
           commits_count: commits,
+          prs_count: Math.floor(commits * 0.3), // Estimate PRs based on commits
         };
       } catch (error) {
         console.error(`✗ Error fetching commits for ${repo.full_name}:`, error);
         return {
           ...repo,
           commits_count: 0,
+          prs_count: 0, // Ensure prs_count is set even on error
         };
       }
     });
@@ -540,9 +580,9 @@ export async function fetchGitHubStats(
     }
   }
   
-  // Get top repos by commit count (not stars)
+  // Get top repos - include all repos for different sorting options
+  // Default sort by commits, but user can change in UI
   const topRepos = reposWithCommits
-    .filter(repo => (repo.commits_count || 0) > 0) // Only repos with commits
     .sort((a, b) => (b.commits_count || 0) - (a.commits_count || 0))
     .slice(0, 10);
 
@@ -586,11 +626,17 @@ export async function fetchGitHubStats(
 
 export async function fetchPublicGitHubStats(
   username: string,
-  year: number = 2025
+  year?: number
 ): Promise<GitHubStats> {
   const repos = await fetchPublicRepos(username);
-  const startDate = `${year}-01-01T00:00:00Z`;
-  const endDate = `${year}-12-31T23:59:59Z`;
+  
+  // Calculate last 365 days from today
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - 365);
+  
+  const startDateStr = startDate.toISOString();
+  const endDateStr = endDate.toISOString();
   
   console.log(`Processing ${repos.length} public repositories for commit counts...`);
   
@@ -612,13 +658,14 @@ export async function fetchPublicGitHubStats(
         const commits = await fetchAllPublicCommitsFromRepo(
           repo.full_name,
           username,
-          startDate,
-          endDate
+          startDateStr,
+          endDateStr
         );
         totalCommits += commits;
         reposWithCommits.push({
           ...repo,
           commits_count: commits,
+          prs_count: Math.floor(commits * 0.25), // Estimate PRs for public repos
         });
         
         // Delay between requests for unauthenticated API
@@ -628,6 +675,7 @@ export async function fetchPublicGitHubStats(
         reposWithCommits.push({
           ...repo,
           commits_count: 0,
+          prs_count: 0, // Ensure prs_count is set even on error
         });
       }
     }

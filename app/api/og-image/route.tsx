@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const username = searchParams.get('username') || 'GitHub User';
     const commits = searchParams.get('commits') || '0';
     const level = searchParams.get('level') || 'Code Ninja';
-    const levelEmoji = searchParams.get('levelEmoji') || '🥷';
+    const levelEmoji = decodeURIComponent(searchParams.get('levelEmoji') || '🥷');
     const stars = searchParams.get('stars') || '0';
     const prs = searchParams.get('prs') || '0';
     const repos = searchParams.get('repos') || '0';
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       return new Response('Username is required', { status: 400 });
     }
 
-    return new ImageResponse(
+    const imageResponse = new ImageResponse(
       (
         <div
           style={{
@@ -195,6 +195,8 @@ export async function GET(request: NextRequest) {
         height: 630,
       }
     );
+
+    return imageResponse;
   } catch (e: any) {
     console.error('Error generating OG image:', e);
     return new Response(

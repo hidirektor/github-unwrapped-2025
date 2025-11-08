@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -71,5 +73,145 @@
   background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 5C25 5 5 25 5 50c0 20 13 37 31 43 2.3.4 3.2-1 3.2-2.2 0-1.1-.1-4-.1-7.8-12.5 2.7-15.1-6-15.1-6-2.4-6-5.8-7.6-5.8-7.6-4.7-3.2.4-3.2.4-3.2 5.2.4 7.9 5.3 7.9 5.3 4.6 7.9 12.1 5.6 15 4.3.5-3.3 1.8-5.6 3.3-6.9-11.5-1.3-23.6-5.8-23.6-25.7 0-5.7 2-10.3 5.3-14-1.6-3.2-.5-8 .5-8.5 5.7-.5 11.6 4.3 12.1 4.6 3.5-1 7.2-1.5 10.9-1.5 3.7 0 7.4.5 10.9 1.5.8-.7 6.1-4.9 12-4.6 1 .5 2.1 5.3.5 8.5 3.3 3.7 5.3 8.3 5.3 14 0 20-12.1 24.4-23.6 25.7 1.9 1.6 3.5 4.7 3.5 9.5 0 6.9-.1 12.4-.1 14.1 0 1.2.9 2.6 3.2 2.2 18-6 31-23 31-43C95 25 75 5 50 5z' fill='rgba(255,255,255,0.03)'/%3E%3C/svg%3E");
   background-size: 200px 200px;
   background-position: 0 0;
+}
+
+/* Pixel Font - Retro Style */
+.pixel-text {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  letter-spacing: 2px;
+  line-height: 1.6;
+  text-transform: uppercase;
+}
+
+/* Retro Terminal Font */
+.retro-text {
+  font-family: 'VT323', 'Courier New', monospace;
+  letter-spacing: 1px;
+  font-size: 1.25rem;
+}
+
+/* Retro Color Palette - Purple/Blue Theme */
+:root {
+  --retro-purple: #a855f7;
+  --retro-purple-dark: #7c3aed;
+  --retro-purple-light: #c084fc;
+  --retro-blue: #3b82f6;
+  --retro-blue-light: #60a5fa;
+  --retro-cyan: #06b6d4;
+  --retro-amber: #fbbf24;
+  --retro-amber-light: #fcd34d;
+  --retro-black: #000000;
+  --retro-black-dark: #0a0a0a;
+  --retro-black-darker: #050505;
+  --retro-red: #ef4444;
+}
+
+/* Retro Terminal Background */
+.retro-bg {
+  background: var(--retro-black-darker);
+  background-image: 
+    repeating-linear-gradient(
+      0deg,
+      rgba(168, 85, 247, 0.02) 0px,
+      transparent 1px,
+      transparent 2px,
+      rgba(168, 85, 247, 0.02) 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(59, 130, 246, 0.02) 0px,
+      transparent 1px,
+      transparent 2px,
+      rgba(59, 130, 246, 0.02) 3px
+    );
+  background-size: 4px 4px;
+}
+
+/* Retro Terminal Text Glow - Subtle */
+.retro-glow {
+  text-shadow: 
+    0 0 3px var(--retro-purple),
+    0 0 6px var(--retro-purple);
+}
+
+.retro-glow-blue {
+  text-shadow: 
+    0 0 3px var(--retro-blue),
+    0 0 6px var(--retro-blue);
+}
+
+.retro-glow-amber {
+  text-shadow: 
+    0 0 3px var(--retro-amber),
+    0 0 6px var(--retro-amber);
+}
+
+/* Retro Border */
+.retro-border {
+  border: 3px solid var(--retro-purple);
+  box-shadow: 
+    inset 0 0 8px rgba(168, 85, 247, 0.15),
+    0 0 8px rgba(168, 85, 247, 0.2);
+}
+
+.retro-border-blue {
+  border: 3px solid var(--retro-blue);
+  box-shadow: 
+    inset 0 0 8px rgba(59, 130, 246, 0.15),
+    0 0 8px rgba(59, 130, 246, 0.2);
+}
+
+.retro-border-amber {
+  border: 3px solid var(--retro-amber);
+  box-shadow: 
+    inset 0 0 8px rgba(251, 191, 36, 0.15),
+    0 0 8px rgba(251, 191, 36, 0.2);
+}
+
+/* CRT Scanline Animation */
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+.animate-scanline {
+  animation: scanline 8s linear infinite;
+}
+
+/* Pixel Glow Effect */
+@keyframes pixel-glow {
+  0%, 100% {
+    text-shadow: 
+      2px 2px 0px #a855f7,
+      4px 4px 0px rgba(168, 85, 247, 0.5),
+      0 0 10px rgba(168, 85, 247, 0.5);
+  }
+  50% {
+    text-shadow: 
+      2px 2px 0px #c084fc,
+      4px 4px 0px rgba(192, 132, 252, 0.7),
+      0 0 15px rgba(192, 132, 252, 0.7);
+  }
+}
+
+/* Retro Terminal Cursor Blink */
+@keyframes blink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
 }
 

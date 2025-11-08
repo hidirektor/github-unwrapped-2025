@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { fetchPublicGitHubStats, fetchPublicUser } from "@/lib/github";
+import {NextRequest, NextResponse} from "next/server";
+import {fetchPublicGitHubStats, fetchPublicUser} from "@/lib/github";
 
 export async function GET(request: NextRequest) {
   const username = request.nextUrl.searchParams.get("username");
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const user = await fetchPublicUser(username);
-    const stats = await fetchPublicGitHubStats(username, 2025);
+    const stats = await fetchPublicGitHubStats(username);
 
     return NextResponse.json({ user, stats });
   } catch (error) {

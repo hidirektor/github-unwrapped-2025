@@ -1,10 +1,10 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { Github } from "lucide-react";
+import {motion} from "framer-motion";
+import {Button} from "@/components/ui/button";
+import {Github} from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import {useEffect, useState} from "react";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -14,11 +14,17 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 octocat-bg relative overflow-hidden">
-      {/* Animated background elements */}
+    <div className="min-h-screen retro-bg relative overflow-hidden">
+      {/* CRT Scanline Effect */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-transparent h-full animate-scanline" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,transparent_0%,rgba(0,0,0,0.4)_100%)]" />
+      </div>
+      
+      {/* Retro Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
-          className="absolute top-20 left-20 w-72 h-72 bg-purple-500/20 rounded-full blur-3xl"
+          className="absolute top-20 left-20 w-72 h-72 border-4 border-[#a855f7]/10"
           animate={{
             x: [0, 100, 0],
             y: [0, 50, 0],
@@ -31,7 +37,7 @@ export default function Home() {
           }}
         />
         <motion.div
-          className="absolute bottom-20 right-20 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"
+          className="absolute bottom-20 right-20 w-96 h-96 border-4 border-[#3b82f6]/10"
           animate={{
             x: [0, -100, 0],
             y: [0, -50, 0],
@@ -52,25 +58,25 @@ export default function Home() {
           transition={{ duration: 0.6 }}
           className="max-w-4xl mx-auto text-center"
         >
-          {/* Logo/Header */}
+          {/* Logo/Header - Retro Style */}
           <motion.div
             initial={{ scale: 0 }}
             animate={mounted ? { scale: 1 } : {}}
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
             className="mb-8"
           >
-            <div className="inline-flex items-center justify-center w-24 h-24 rounded-full glass border-2 border-purple-500/50 mb-6">
-              <Github className="w-12 h-12 text-purple-400" />
+            <div className="inline-flex items-center justify-center w-24 h-24 retro-border bg-black/70 mb-6">
+              <Github className="w-12 h-12 text-[#a855f7]" />
             </div>
           </motion.div>
 
-          <h1 className="text-6xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-            GitHub Unwrapped 2025
+          <h1 className="pixel-text text-4xl md:text-6xl font-bold mb-6 text-[#a855f7]">
+            GITHUB UNWRAPPED 2025
           </h1>
 
-          <p className="text-xl md:text-2xl text-gray-300 mb-12 max-w-2xl mx-auto">
-            Discover your year in code. See your commits, top repositories, and
-            unlock your developer level.
+          <p className="retro-text text-xl md:text-2xl text-[#60a5fa] mb-12 max-w-2xl mx-auto">
+            DISCOVER YOUR YEAR IN CODE. SEE YOUR COMMITS, TOP REPOSITORIES, AND
+            UNLOCK YOUR DEVELOPER LEVEL.
           </p>
 
           {/* Authentication Options */}
@@ -81,90 +87,89 @@ export default function Home() {
             className="max-w-3xl mx-auto mb-12"
           >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Option 1: OAuth */}
+              {/* Option 1: OAuth - Retro */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={mounted ? { opacity: 1, y: 0 } : {}}
                 transition={{ delay: 0.5 }}
-                className="glass border border-purple-500/30 rounded-2xl p-6 hover:border-purple-500/50 transition-colors"
+                className="retro-border bg-black/70 p-6 hover:border-[#c084fc] transition-colors flex flex-col h-full"
               >
-                <div className="text-center mb-4">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-500/20 mb-3">
-                    <Github className="w-8 h-8 text-purple-400" />
+                <div className="text-center mb-4 flex-grow">
+                  <div className="inline-flex items-center justify-center w-16 h-16 retro-border bg-black/50 mb-3">
+                    <Github className="w-8 h-8 text-[#a855f7]" />
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">Sign in via GitHub</h3>
-                  <p className="text-sm text-gray-400 mb-4">
-                    Full access with OAuth authentication. View all your private and public repositories.
+                  <h3 className="pixel-text text-sm font-bold mb-2 text-[#a855f7]">SIGN IN VIA GITHUB</h3>
+                  <p className="retro-text text-xs text-[#60a5fa] mb-4">
+                    FULL ACCESS WITH OAUTH AUTHENTICATION. VIEW ALL YOUR PRIVATE AND PUBLIC REPOSITORIES.
                   </p>
                 </div>
-                <Link href="/api/auth/github" className="block">
+                <Link href="/api/auth/github" className="block mt-auto">
                   <Button
                     size="lg"
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                    className="w-full retro-border bg-black text-[#a855f7] hover:bg-[#7c3aed] hover:text-white pixel-text text-[10px] whitespace-normal py-3 px-4"
                   >
-                    <Github className="mr-2 h-4 w-4" />
-                    Sign in with GitHub
+                    SIGN IN WITH GITHUB
                   </Button>
                 </Link>
               </motion.div>
 
-              {/* Option 2: Public Data */}
+              {/* Option 2: Public Data - Retro */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={mounted ? { opacity: 1, y: 0 } : {}}
                 transition={{ delay: 0.6 }}
-                className="glass border border-blue-500/30 rounded-2xl p-6 hover:border-blue-500/50 transition-colors"
+                className="retro-border-amber bg-black/70 p-6 hover:border-[#ffcc00] transition-colors flex flex-col h-full"
               >
-                <div className="text-center mb-4">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-500/20 mb-3">
+                <div className="text-center mb-4 flex-grow">
+                  <div className="inline-flex items-center justify-center w-16 h-16 retro-border-amber bg-black/50 mb-3">
                     <span className="text-3xl">🔍</span>
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">Retrieve Public Data</h3>
-                  <p className="text-sm text-gray-400 mb-4">
-                    Enter a GitHub username to view public repository statistics. No authentication required.
+                  <h3 className="pixel-text text-sm font-bold mb-2 text-[#fbbf24]">RETRIEVE PUBLIC DATA</h3>
+                  <p className="retro-text text-xs text-[#fcd34d] mb-4">
+                    ENTER A GITHUB USERNAME TO VIEW PUBLIC REPOSITORY STATISTICS. NO AUTHENTICATION REQUIRED.
                   </p>
                 </div>
-                <Link href="/public" className="block">
+                <Link href="/public" className="block mt-auto">
                   <Button
                     size="lg"
                     variant="outline"
-                    className="w-full glass border-blue-500/50 text-white hover:bg-blue-500/10"
+                    className="w-full retro-border-amber bg-black text-[#fbbf24] hover:bg-[#fbbf24] hover:text-black pixel-text text-[10px] whitespace-normal py-3 px-4"
                   >
-                    View Public Stats
+                    VIEW PUBLIC STATS
                   </Button>
                 </Link>
               </motion.div>
 
-              {/* Option 3: Token */}
+              {/* Option 3: Token - Retro */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={mounted ? { opacity: 1, y: 0 } : {}}
                 transition={{ delay: 0.7 }}
-                className="glass border border-green-500/30 rounded-2xl p-6 hover:border-green-500/50 transition-colors"
+                className="retro-border bg-black/70 p-6 hover:border-[#c084fc] transition-colors flex flex-col h-full"
               >
-                <div className="text-center mb-4">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/20 mb-3">
+                <div className="text-center mb-4 flex-grow">
+                  <div className="inline-flex items-center justify-center w-16 h-16 retro-border bg-black/50 mb-3">
                     <span className="text-3xl">🔑</span>
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">Use GitHub Token</h3>
-                  <p className="text-sm text-gray-400 mb-4">
-                    Enter your personal access token for full access to all your repositories and private data.
+                  <h3 className="pixel-text text-sm font-bold mb-2 text-[#3b82f6]">USE GITHUB TOKEN</h3>
+                  <p className="retro-text text-xs text-[#60a5fa] mb-4">
+                    ENTER YOUR PERSONAL ACCESS TOKEN FOR FULL ACCESS TO ALL YOUR REPOSITORIES AND PRIVATE DATA.
                   </p>
                 </div>
-                <Link href="/token" className="block">
+                <Link href="/token" className="block mt-auto">
                   <Button
                     size="lg"
                     variant="outline"
-                    className="w-full glass border-green-500/50 text-white hover:bg-green-500/10"
+                    className="w-full retro-border-blue bg-black text-[#3b82f6] hover:bg-[#2563eb] hover:text-white pixel-text text-[10px] whitespace-normal py-3 px-4"
                   >
-                    Use Token
+                    USE TOKEN
                   </Button>
                 </Link>
               </motion.div>
             </div>
           </motion.div>
 
-          {/* Demo Option */}
+          {/* Demo Option - Retro */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={mounted ? { opacity: 1 } : {}}
@@ -175,14 +180,14 @@ export default function Home() {
               <Button
                 size="lg"
                 variant="ghost"
-                className="glass border-purple-500/30 text-gray-300 hover:bg-white/10"
+                className="retro-border bg-black/50 text-[#a855f7] hover:bg-[#7c3aed] hover:text-white pixel-text text-xs"
               >
-                View Demo
+                VIEW DEMO
               </Button>
             </Link>
           </motion.div>
 
-          {/* Features */}
+          {/* Features - Retro */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={mounted ? { opacity: 1, y: 0 } : {}}
@@ -191,16 +196,16 @@ export default function Home() {
           >
             {[
               {
-                title: "📊 Your Stats",
-                description: "Total commits, PRs, issues, and stars",
+                title: "YOUR STATS",
+                description: "TOTAL COMMITS, PRS, ISSUES, AND STARS",
               },
               {
-                title: "🏆 Leaderboard",
-                description: "Unlock levels based on your commits",
+                title: "LEADERBOARD",
+                description: "UNLOCK LEVELS BASED ON YOUR COMMITS",
               },
               {
-                title: "📈 Insights",
-                description: "Timeline charts and top repositories",
+                title: "INSIGHTS",
+                description: "TIMELINE CHARTS AND TOP REPOSITORIES",
               },
             ].map((feature, index) => (
               <motion.div
@@ -208,10 +213,10 @@ export default function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={mounted ? { opacity: 1, y: 0 } : {}}
                 transition={{ delay: 0.7 + index * 0.1 }}
-                className="p-6 rounded-2xl glass border border-purple-500/20"
+                className="p-6 retro-border bg-black/70"
               >
-                <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-                <p className="text-gray-400">{feature.description}</p>
+                <h3 className="pixel-text text-lg font-bold mb-2 text-[#a855f7]">{feature.title}</h3>
+                <p className="retro-text text-[#60a5fa]">{feature.description}</p>
               </motion.div>
             ))}
           </motion.div>

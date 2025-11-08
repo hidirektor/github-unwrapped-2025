@@ -1,18 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-} from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {motion} from "framer-motion";
+import {Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,} from "recharts";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 
 interface CommitChartProps {
   data: { month: string; commits: number }[];
@@ -27,7 +17,7 @@ export function CommitChart({ data }: CommitChartProps) {
     >
       <Card className="glass">
         <CardHeader>
-          <CardTitle>Commit Timeline 2025</CardTitle>
+          <CardTitle>Commit Timeline (Last 365 Days)</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>

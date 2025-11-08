@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { fetchGitHubStats, fetchGitHubUser } from "@/lib/github";
+import {NextRequest, NextResponse} from "next/server";
+import {fetchGitHubStats, fetchGitHubUser} from "@/lib/github";
 
 export async function GET(request: NextRequest) {
   // Try to get token from cookie (OAuth) first
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const user = await fetchGitHubUser(token);
-    const stats = await fetchGitHubStats(token, user.login, 2025);
+    const stats = await fetchGitHubStats(token, user.login);
 
     return NextResponse.json({ user, stats });
   } catch (error) {
