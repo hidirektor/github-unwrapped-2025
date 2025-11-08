@@ -157,8 +157,8 @@ function DashboardContent() {
           <div className="flex flex-col md:flex-row gap-6">
             {/* Left: Profile Picture - Retro Border */}
             <div className="flex-shrink-0">
-              <div className="retro-border p-2 bg-black/50">
-                <Avatar className="h-64 w-64 border-4 border-[#a855f7] rounded-none">
+              <div className="retro-border p-2 bg-black/50 h-80 flex items-center justify-center">
+                <Avatar className="h-full w-64 border-4 border-[#a855f7] rounded-none">
                   <AvatarImage src={user.avatar_url} alt={user.login} />
                   <AvatarFallback className="text-4xl bg-black text-[#c084fc]">
                     {user.login[0].toUpperCase()}
@@ -168,7 +168,7 @@ function DashboardContent() {
             </div>
 
             {/* Right: User Info - Retro Terminal */}
-            <div className="flex-1 retro-border bg-black/70 p-6">
+            <div className="flex-1 retro-border bg-black/70 p-6 flex flex-col h-80 overflow-y-auto">
               <div className="mb-4">
                 <h1 className="pixel-text text-2xl md:text-3xl font-bold mb-2 text-[#a855f7]">{user.name || user.login}</h1>
                 <p className="retro-text text-xl text-[#60a5fa] mb-4">@{user.login}</p>

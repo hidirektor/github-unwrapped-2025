@@ -9,7 +9,6 @@ interface PixelLoaderProps {
 
 export function PixelLoader({ message = "LOADING DATA..." }: PixelLoaderProps) {
   const [progress, setProgress] = useState(0);
-  const [dots, setDots] = useState("");
   const [terminalMessages, setTerminalMessages] = useState<string[]>([
     "> Connecting to GitHub API...",
     "> Fetching user data...",
@@ -30,14 +29,6 @@ export function PixelLoader({ message = "LOADING DATA..." }: PixelLoaderProps) {
       });
     }, 150);
 
-    // Animate dots
-    const dotsInterval = setInterval(() => {
-      setDots((prev) => {
-        if (prev === "...") return "";
-        return prev + ".";
-      });
-    }, 500);
-
     // Cycle through terminal messages
     const messageInterval = setInterval(() => {
       setCurrentMessageIndex((prev) => (prev + 1) % terminalMessages.length);
@@ -45,7 +36,6 @@ export function PixelLoader({ message = "LOADING DATA..." }: PixelLoaderProps) {
 
     return () => {
       clearInterval(progressInterval);
-      clearInterval(dotsInterval);
       clearInterval(messageInterval);
     };
   }, [terminalMessages.length]);
@@ -95,7 +85,6 @@ export function PixelLoader({ message = "LOADING DATA..." }: PixelLoaderProps) {
             }}
           >
             {message}
-            <span className="text-[#60a5fa]">{dots}</span>
           </motion.div>
 
           {/* Retro Progress Bar Container */}
