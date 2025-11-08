@@ -1,9 +1,9 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { GitHubRepo } from "@/lib/github";
-import { Star, ExternalLink } from "lucide-react";
+import {motion} from "framer-motion";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {GitHubRepo} from "@/lib/github";
+import {ExternalLink, GitCommit, Star} from "lucide-react";
 import Link from "next/link";
 
 interface TopReposProps {
@@ -19,7 +19,7 @@ export function TopRepos({ repos }: TopReposProps) {
     >
       <Card className="glass">
         <CardHeader>
-          <CardTitle>Top Repositories</CardTitle>
+          <CardTitle>Top Repositories (by Commits)</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -51,6 +51,10 @@ export function TopRepos({ repos }: TopReposProps) {
                           {repo.language}
                         </span>
                       )}
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <GitCommit className="h-3 w-3" />
+                        {repo.commits_count?.toLocaleString() || 0} commits
+                      </div>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Star className="h-3 w-3" />
                         {repo.stargazers_count}
